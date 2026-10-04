@@ -1,6 +1,6 @@
-import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=21';
-import {getPosition} from './nearby.js?v=21';
-import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,hasActivities} from './poi.js?v=21';
+import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=22';
+import {getPosition} from './nearby.js?v=22';
+import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,hasActivities} from './poi.js?v=22';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 async function loadPlaces(){if(!placesPromise)placesPromise=json('./places.json',{},30000).then(data=>{const list=$('cities');const names=[...new Set(data.places.map(p=>p.name))];list.replaceChildren(...names.map(name=>{const option=el('option');option.value=name;return option;}));return data.places;}).catch(error=>{placesPromise=null;throw error;});return placesPromise;}
@@ -94,14 +94,15 @@ async function nearbySearch(){
   }catch(error){status(error.message+(active?' Viser fortsatt forrige søk.':''),true);}
   finally{setBusy(false);updateSearchLabels();}
 }
+let preferredOverpass='https://overpass.private.coffee/api/interpreter';
 async function overpass(query){
-  const endpoints=['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'];
+  const endpoints=[...new Set([preferredOverpass,'https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'])];
   for(const [index,endpoint] of endpoints.entries()){
     if(index)status('Kartregisteret svarte ikke. Prøver reserveserveren …');
     try{
       const result=await json(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({data:query})},55000);
       // A timed-out query may include partial elements. Never present these as a complete search.
-      if(!result.remark&&Array.isArray(result.elements))return result;
+      if(!result.remark&&Array.isArray(result.elements)){preferredOverpass=endpoint;return result;}
     }catch{}
   }
   throw new Error('Ingen av kartregisterets to servere svarte med et fullstendig søk. Vent et minutt og prøv igjen.');
