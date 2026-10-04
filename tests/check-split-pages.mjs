@@ -17,7 +17,8 @@ async function checkPage(near,userAgent='Android'){
  assert(html.includes(near?'href="./">Rutesøk':'href="./nearby.html">Nær meg'));
  ids.types.value='hotel';
  if(near)assert(!html.includes('near-radius'));else{ids.from.value='Oslo';ids.to.value='Moss';ids.radius.value='0.3';}
- let gps=0,requests=0,reads=0,writes=0,deny=false,many=false;
+ let gps=0,requests=0,reads=0,writes=0,deny=false,many=false,registryFailure='';
+ const registryEndpoints=[];
  const searchRadii=[];
  const coords=[[10.7389701,59.9133301],[10.6619753,59.4347974]];
  const area=new Node(),caption=new Node();caption.firstChild=new Node();
@@ -30,7 +31,12 @@ async function checkPage(near,userAgent='Android'){
   if(url==='./places.json')data=JSON.parse(fs.readFileSync(root+'places.json'));
   else if(String(url).includes('photon')){const name=new URL(url).searchParams.get('q');data={features:[{properties:{name,countrycode:'NO',osm_value:'city'},geometry:{coordinates:name==='Oslo'?coords[0]:coords[1]}}]};}
   else if(String(url).includes('osrm'))data={code:'Ok',routes:[{distance:60000,duration:3600,geometry:{coordinates:coords}}]};
-  else if(String(url).includes('overpass')){const query=options.body.get('data');searchRadii.push(Number(query.match(/around:(\d+)/)[1]));data={elements:[
+  else if(String(url).includes('overpass')){
+   registryEndpoints.push(url);
+   if(registryFailure==='all'||(registryFailure==='network'&&String(url).includes('private.coffee')))throw new TypeError('Network unavailable');
+   if(String(url).includes('private.coffee')&&registryFailure==='partial')return {ok:true,json:async()=>({remark:'runtime timeout',elements:[]})};
+   if(String(url).includes('private.coffee')&&registryFailure==='invalid')return {ok:true,json:async()=>({})};
+   const query=options.body.get('data');searchRadii.push(Number(query.match(/around:(\d+)/)[1]));data={elements:[
    ...(query.includes('"tourism"')?[{type:'node',id:1,lon:coords[0][0],lat:coords[0][1],tags:{tourism:'hotel',name:'Start-hotell'}}]:[]),
    ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
    ...(query.includes('"charging_station"')?[{type:'node',id:3,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'charging_station',name:'Start-lader',operator:'Recharge','socket:type2_combo':'2','socket:type2_combo:output':'150 kW'}}]:[]),
@@ -78,6 +84,18 @@ async function checkPage(near,userAgent='Android'){
   if(userAgent.includes('iPhone')){assert.equal(u.hostname,'maps.apple.com');assert.equal(u.searchParams.get('dirflg'),'d');assert(u.searchParams.get('daddr'));}
   else{assert.equal(u.hostname,'www.google.com');assert.equal(u.searchParams.get('dir_action'),'navigate');assert.equal(u.searchParams.get('travelmode'),'driving');assert(u.searchParams.get('destination'));}
  }
+ ids.types.value='charging';
+ const runSearch=()=>near?ids.locate.handlers.click():ids.search.handlers.submit({preventDefault(){}});
+ for(const failure of ['network','partial','invalid']){
+  registryFailure=failure;registryEndpoints.length=0;await runSearch();
+  assert.equal(registryEndpoints[0],'https://overpass.private.coffee/api/interpreter');
+  assert.equal(registryEndpoints[1],'https://overpass-api.de/api/interpreter');
+  assert(!ids.status.textContent.includes('Ingen av kartregisterets'));
+ }
+ registryFailure='all';const previousCount=ids.count.textContent;await runSearch();
+ assert(ids.status.textContent.includes('Ingen av kartregisterets to servere'));
+ assert(ids.status.textContent.includes('Viser fortsatt forrige'));
+ assert.equal(ids.count.textContent,previousCount);assert.equal(ids[near?'locate':'submit'].disabled,false);
 }
 await checkPage(false);await checkPage(true);await checkPage(false,'iPhone');await checkPage(true,'iPhone');
 const handlers={},matched=[],assets=[];
