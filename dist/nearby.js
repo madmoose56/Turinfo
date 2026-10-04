@@ -1,4 +1,4 @@
-import {haversine} from './geo.js?v=16';
+import {haversine} from './geo.js?v=27';
 
 export function nearbyQuery(coords,radius){
   const [lon,lat]=coords;
@@ -24,9 +24,9 @@ export function getPosition(geolocation){
   return new Promise((resolve,reject)=>{
     if(!geolocation){reject(new Error('Posisjon er ikke tilgjengelig her. Åpne siden i Safari på iPhone og prøv igjen.'));return;}
     geolocation.getCurrentPosition(position=>{
-      const {longitude,latitude,accuracy}=position.coords;
+      const {longitude,latitude,accuracy,heading}=position.coords;
       if(!Number.isFinite(longitude)||!Number.isFinite(latitude)||!Number.isFinite(accuracy)||accuracy<0){reject(new Error('Telefonen returnerte en ugyldig posisjon. Prøv igjen.'));return;}
-      resolve({coords:[longitude,latitude],accuracy});
+      resolve({coords:[longitude,latitude],accuracy,heading:Number.isFinite(heading)?heading:null});
     },error=>{
       const messages={1:'Posisjonstilgang ble avslått. Tillat posisjon for Turinfo i Safari eller iPhone-innstillingene og prøv igjen.',2:'Telefonen fant ikke posisjonen. Sjekk at stedstjenester er slått på og prøv igjen.',3:'Det tok for lang tid å finne posisjonen. Prøv igjen, gjerne utendørs.'};
       reject(new Error(messages[error.code]??'Posisjonen kunne ikke hentes. Prøv igjen.'));
