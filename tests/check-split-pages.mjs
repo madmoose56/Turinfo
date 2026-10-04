@@ -33,9 +33,9 @@ async function checkPage(near,userAgent='Android'){
   else if(String(url).includes('osrm'))data={code:'Ok',routes:[{distance:60000,duration:3600,geometry:{coordinates:coords}}]};
   else if(String(url).includes('overpass')){
    registryEndpoints.push(url);
-   if(registryFailure==='all'||(registryFailure==='network'&&String(url).includes('private.coffee')))throw new TypeError('Network unavailable');
-   if(String(url).includes('private.coffee')&&registryFailure==='partial')return {ok:true,json:async()=>({remark:'runtime timeout',elements:[]})};
-   if(String(url).includes('private.coffee')&&registryFailure==='invalid')return {ok:true,json:async()=>({})};
+   if(registryFailure==='all'||(registryFailure==='network'&&registryEndpoints.length===1))throw new TypeError('Network unavailable');
+   if(registryEndpoints.length===1&&registryFailure==='partial')return {ok:true,json:async()=>({remark:'runtime timeout',elements:[]})};
+   if(registryEndpoints.length===1&&registryFailure==='invalid')return {ok:true,json:async()=>({})};
    const query=options.body.get('data');const around=query.match(/around:(\d+)/);if(around)searchRadii.push(Number(around[1]));data={elements:[
    ...(query.includes('"tourism"')?[{type:'node',id:1,lon:coords[0][0],lat:coords[0][1],tags:{tourism:'hotel',name:'Start-hotell'}}]:[]),
    ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
@@ -88,8 +88,9 @@ async function checkPage(near,userAgent='Android'){
  const runSearch=()=>near?ids.locate.handlers.click():ids.search.handlers.submit({preventDefault(){}});
  for(const failure of ['network','partial','invalid']){
   registryFailure=failure;registryEndpoints.length=0;await runSearch();
-  assert.equal(registryEndpoints[0],'https://overpass.private.coffee/api/interpreter');
-  assert.equal(registryEndpoints[1],'https://overpass-api.de/api/interpreter');
+  assert.notEqual(registryEndpoints[0],registryEndpoints[1]);
+  assert.deepEqual([...new Set(registryEndpoints)].sort(),['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter']);
+  if(!near)assert(registryEndpoints.slice(2).every(url=>url===registryEndpoints[1]));
   assert(!ids.status.textContent.includes('Ingen av kartregisterets'));
  }
  registryFailure='all';const previousCount=ids.count.textContent;await runSearch();
