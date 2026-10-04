@@ -36,7 +36,7 @@ async function checkPage(near,userAgent='Android'){
    if(registryFailure==='all'||(registryFailure==='network'&&String(url).includes('private.coffee')))throw new TypeError('Network unavailable');
    if(String(url).includes('private.coffee')&&registryFailure==='partial')return {ok:true,json:async()=>({remark:'runtime timeout',elements:[]})};
    if(String(url).includes('private.coffee')&&registryFailure==='invalid')return {ok:true,json:async()=>({})};
-   const query=options.body.get('data');searchRadii.push(Number(query.match(/around:(\d+)/)[1]));data={elements:[
+   const query=options.body.get('data');const around=query.match(/around:(\d+)/);if(around)searchRadii.push(Number(around[1]));data={elements:[
    ...(query.includes('"tourism"')?[{type:'node',id:1,lon:coords[0][0],lat:coords[0][1],tags:{tourism:'hotel',name:'Start-hotell'}}]:[]),
    ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
    ...(query.includes('"charging_station"')?[{type:'node',id:3,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'charging_station',name:'Start-lader',operator:'Recharge','socket:type2_combo':'2','socket:type2_combo:output':'150 kW'}}]:[]),
