@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {selectedTypes,typeValue,resultLabel,routeQuery,nearQuery,extractPlaces,chargingDetails} from '../dist/poi.js';
+const route=[[10,60],[10.1,60]],metersToDegrees=1/(6371000*Math.PI/180);
+const raw=[299.9,300,300.1].map((m,i)=>({type:'node',id:i,lon:10.05,lat:60+m*metersToDegrees,tags:{amenity:'charging_station',name:'Lader '+m}}));
+raw.push(...['private','no'].map((access,i)=>({type:'node',id:10+i,lon:10.05,lat:60,tags:{amenity:'charging_station',name:access,access}})),{type:'node',id:20,lon:10.05,lat:60,tags:{amenity:'charging_station',name:'Sykkellader',motorcar:'no'}});
+assert.equal(extractPlaces(raw,route,300,['charging']).length,2);
+assert.equal(extractPlaces(raw,[10.05,60],1000,['charging'],true).length,3);
+assert.deepEqual(selectedTypes('all'),['hotel','fuel','charging']);assert.equal(typeValue(['charging']),'charging');assert.equal(typeValue(selectedTypes('all')),'hotel,fuel,charging');
+assert.deepEqual(selectedTypes('hotel,charging'),['hotel','charging']);assert.deepEqual(selectedTypes('fuel,charging'),['fuel','charging']);assert.deepEqual(selectedTypes(''),[]);
+assert.equal(resultLabel(['charging']),'ladestasjoner');assert.equal(resultLabel(selectedTypes('all')),'hoteller, bensinstasjoner og ladestasjoner');
+assert(routeQuery(route,300,['charging']).includes('["amenity"="charging_station"]'));assert(!nearQuery([10,60],1000,['charging']).includes('["amenity"="fuel"]'));
+assert.deepEqual(chargingDetails({'socket:type2_combo':'6;3','socket:type2_combo:output':'350 kW;90 kW','socket:type2':'0','socket:chademo':'no',access:'customers',operator:'Test',opening_hours:'24/7'}),{connectors:['CCS (350 kW;90 kW)'],hours:'Døgnåpent',operator:'Test',access:'Kun for kunder'});
+assert.deepEqual(chargingDetails({}).connectors,[]);
+console.log('PASS: charging/all queries, route 300m boundary, GPS extraction, bike/private exclusion, category restoration and optional charging metadata.');
