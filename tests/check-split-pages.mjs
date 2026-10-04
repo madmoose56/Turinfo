@@ -17,7 +17,7 @@ async function checkPage(near,userAgent='Android'){
  assert(html.includes(near?'href="./">Rutesøk':'href="./nearby.html">Nær meg'));
  ids.types.value='hotel';
  if(near)assert(!html.includes('near-radius'));else{ids.from.value='Oslo';ids.to.value='Moss';ids.radius.value='0.3';}
- let gps=0,requests=0,reads=0,writes=0,deny=false,many=false,registryFailure='';
+ let gps=0,requests=0,reads=0,writes=0,deny=false,many=false,registryFailure='',otherRegistryRequests=0;
  const registryEndpoints=[];
  const searchRadii=[];
  const coords=[[10.7389701,59.9133301],[10.6619753,59.4347974]];
@@ -34,10 +34,12 @@ async function checkPage(near,userAgent='Android'){
   else if(String(url).includes('osrm'))data={code:'Ok',routes:[{distance:60000,duration:3600,geometry:{coordinates:coords}}]};
   else if(String(url).includes('overpass')){
    registryEndpoints.push(url);
-   if(registryFailure==='all'||(registryFailure==='two'&&registryEndpoints.length<=2)||(registryFailure==='network'&&registryEndpoints.length===1))throw new TypeError('Network unavailable');
+   const query=options.body.get('data');
+   if(registryFailure==='rest-partial'&&(query.includes('["tourism"="hotel"]')||++otherRegistryRequests>1))throw new TypeError('Network unavailable');
+   if(registryFailure==='all'||(registryFailure==='hotel'&&query.includes('["tourism"="hotel"]'))||(registryFailure==='two'&&registryEndpoints.length<=2)||(registryFailure==='network'&&registryEndpoints.length===1))throw new TypeError('Network unavailable');
    if(registryEndpoints.length===1&&registryFailure==='partial')return {ok:true,json:async()=>({remark:'runtime timeout',elements:[]})};
    if(registryEndpoints.length===1&&registryFailure==='invalid')return {ok:true,json:async()=>({})};
-   const query=options.body.get('data');const around=query.match(/around:(\d+)/);if(around)searchRadii.push(Number(around[1]));data={elements:[
+   const around=query.match(/around:(\d+)/);if(around)searchRadii.push(Number(around[1]));data={elements:[
    ...(query.includes('"tourism"')?[{type:'node',id:1,lon:coords[0][0],lat:coords[0][1],tags:{tourism:'hotel',name:'Start-hotell'}}]:[]),
    ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
    ...(query.includes('"charging_station"')?[{type:'node',id:3,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'charging_station',name:'Start-lader',operator:'Recharge','socket:type2_combo':'2','socket:type2_combo:output':'150 kW'}}]:[]),
@@ -99,7 +101,44 @@ async function checkPage(near,userAgent='Android'){
  assert(ids.status.textContent.includes('Ingen av kartregisterets servere'));
  assert(ids.status.textContent.includes('Viser fortsatt forrige'));
  assert.equal(ids.count.textContent,previousCount);assert.equal(ids[near?'locate':'submit'].disabled,false);assert(ids['category-counts'].textContent.includes('ikke fullført'));
+ many=false;
  {ids.types.value='hotel';await runSearch();assert.equal(ids.count.textContent,'1');assert(ids.status.textContent.includes('Viser hotelloversikten fra'));assert(ids['category-counts'].textContent.includes('Hoteller: 1'));assert(ids['category-counts'].textContent.includes('Hotellopplysninger fra'));assert.equal(ids['category-counts'].hidden,false);}
+ {
+  const beforeWrites=writes;
+  ids.types.value='all';ids.types.handlers.change();await runSearch();
+  assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children.length,1);
+  assert.equal(ids.results.children[0].children[1].children[0].textContent,'Reservehotell');
+  assert(ids['category-counts'].textContent.includes('Hoteller: 1'));
+  assert(ids['category-counts'].textContent.includes('Bensin: utilgjengelig'));
+  assert(ids['category-counts'].textContent.includes('Elbil-lading: utilgjengelig'));
+  assert(ids.status.textContent.includes('Søket er delvis'));
+  assert(ids.status.textContent.includes('Viser hotelloversikten fra'));
+  assert.equal(ids['category-counts'].hidden,false);
+  assert.equal(writes,beforeWrites,'A partial hotel-reserve search must preserve the last complete saved search');
+ }
+ {
+  registryFailure='hotel';registryEndpoints.length=0;const beforeWrites=writes;
+  await runSearch();
+  assert.equal(ids.count.textContent,'3');
+  assert(ids['category-counts'].textContent.includes('Hoteller: 1'));
+  assert(ids['category-counts'].textContent.includes('Bensin: 1'));
+  assert(ids['category-counts'].textContent.includes('Elbil-lading: 1'));
+  assert(!ids['category-counts'].textContent.includes('utilgjengelig'));
+  assert(ids.status.textContent.includes('Viser hotelloversikten fra'));
+  assert(!ids.status.textContent.includes('Søket er delvis'));
+  assert.equal(writes,beforeWrites+(near?0:1),'Complete reserve-plus-live route results may be saved; GPS results stay private');
+ }
+ {
+  registryFailure='rest-partial';otherRegistryRequests=0;const beforeWrites=writes;
+  await runSearch();
+  assert(otherRegistryRequests>1,'Exercise a successful live response followed by failure in a later route piece or larger GPS radius');
+  assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children.length,1);
+  assert.equal(ids.results.children[0].children[1].children[0].textContent,'Reservehotell');
+  assert(ids['category-counts'].textContent.includes('Bensin: utilgjengelig'));
+  assert(ids['category-counts'].textContent.includes('Elbil-lading: utilgjengelig'));
+  assert(ids.status.textContent.includes('Søket er delvis'));
+  assert.equal(writes,beforeWrites,'Incomplete live category responses must not be merged into the hotel reserve or saved');
+ }
 }
 await checkPage(false);await checkPage(true);await checkPage(false,'iPhone');await checkPage(true,'iPhone');
 const handlers={},matched=[],assets=[];
@@ -109,4 +148,4 @@ let install;handlers.install({waitUntil:p=>install=p});await install;assert(asse
 for(const [url,expected] of [['https://example.test/nearby.html','./nearby.html'],['https://example.test/','./index.html']]){
  let response;handlers.fetch({request:{method:'GET',mode:'navigate',url},respondWith:p=>response=p});assert.equal(await response,expected);
 }
-console.log('PASS: route home has no nearby controls; nearby page has no route controls; mutual navigation; no GPS or route/cache access on nearby opening; permission error and combined GPS results; main route filter and Ved vei preserved; correct offline fallback for both pages.');
+console.log('PASS: route home has no nearby controls; nearby page has no route controls; mutual navigation; no GPS or route/cache access on nearby opening; permission error and combined GPS results; main route filter and Ved vei preserved; correct offline fallback; mixed hotel reserve searches show unavailable categories without overwriting complete route cache, and recover when other categories respond.');
