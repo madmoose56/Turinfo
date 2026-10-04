@@ -6,6 +6,6 @@
   "description": "Hoteller, ladestasjoner og aktiviteter langs ruten",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node tests/check-activities.mjs && node tests/check-charging.mjs && node tests/check-road-radius.mjs && node --experimental-vm-modules tests/check-split-pages.mjs"
+    "test": "node tests/check-activities.mjs && node tests/check-charging.mjs && node tests/check-road-radius.mjs && node --experimental-vm-modules tests/check-split-pages.mjs && node tests/check-map-view.mjs && node --experimental-vm-modules tests/check-map-integration.mjs"
   }
 }
