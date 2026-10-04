@@ -28,7 +28,8 @@ async function checkPage(near,userAgent='Android'){
  localStorage:{getItem(){reads++;return null},setItem(){writes++}},sessionStorage:{getItem:()=>null,setItem(){}},matchMedia:()=>({matches:false,addEventListener(){}}),innerWidth:1200,
  fetch:async(url,options)=>{
   requests++;let data;
-  if(url==='./places.json')data=JSON.parse(fs.readFileSync(root+'places.json'));
+  if(url==='./hotels.json')data={updatedAt:'2026-10-04T22:17:05Z',elements:[{type:'node',id:999,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{tourism:'hotel',name:'Reservehotell'}}]};
+  else if(url==='./places.json')data=JSON.parse(fs.readFileSync(root+'places.json'));
   else if(String(url).includes('photon')){const name=new URL(url).searchParams.get('q');data={features:[{properties:{name,countrycode:'NO',osm_value:'city'},geometry:{coordinates:name==='Oslo'?coords[0]:coords[1]}}]};}
   else if(String(url).includes('osrm'))data={code:'Ok',routes:[{distance:60000,duration:3600,geometry:{coordinates:coords}}]};
   else if(String(url).includes('overpass')){
@@ -60,11 +61,11 @@ async function checkPage(near,userAgent='Android'){
   assert(ids.results.children[0].children[1].children.some(n=>n.textContent.includes('CCS (150 kW)')));
   ids.types.value='all';ids.types.handlers.change();await ids.locate.handlers.click();assert.equal(ids.count.textContent,'3');assert.equal(writes,0);
  }else{
-  assert.equal(writes,1);assert.equal(ids.count.textContent,'0');
+  assert.equal(writes,1);assert.equal(ids.count.textContent,'0');assert.equal(ids['category-counts'].textContent,'Hoteller: 0');
   ids.types.value='both';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});
   assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-stasjon');assert(ids.status.textContent.includes('300 m'));assert.equal(gps,0);
   ids.types.value='charging';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-lader');assert.equal(ids['charging-legend'].hidden,false);
-  ids.types.value='all';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'2');assert.equal(gps,0);
+  ids.types.value='all';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'2');assert.equal(ids['category-counts'].textContent,'Hoteller: 0 · Bensin: 1 · Elbil-lading: 1');assert.equal(gps,0);
  }
  for(const values of [['hotel','charging'],['fuel','charging'],['culture'],['hotel','fuel','charging','culture'],[]]){
   const inputs=choices.filter(i=>i.name==='poi-type');inputs.forEach(i=>i.checked=values.includes(i.value));documentHandlers.change({target:inputs[0]});
@@ -97,7 +98,8 @@ async function checkPage(near,userAgent='Android'){
  registryFailure='all';const previousCount=ids.count.textContent;await runSearch();
  assert(ids.status.textContent.includes('Ingen av kartregisterets servere'));
  assert(ids.status.textContent.includes('Viser fortsatt forrige'));
- assert.equal(ids.count.textContent,previousCount);assert.equal(ids[near?'locate':'submit'].disabled,false);
+ assert.equal(ids.count.textContent,previousCount);assert.equal(ids[near?'locate':'submit'].disabled,false);assert(ids['category-counts'].textContent.includes('ikke fullført'));
+ {ids.types.value='hotel';await runSearch();assert.equal(ids.count.textContent,'1');assert(ids.status.textContent.includes('Viser hotelloversikten fra'));assert(ids['category-counts'].textContent.includes('Hoteller: 1'));assert(ids['category-counts'].textContent.includes('Hotellopplysninger fra'));assert.equal(ids['category-counts'].hidden,false);}
 }
 await checkPage(false);await checkPage(true);await checkPage(false,'iPhone');await checkPage(true,'iPhone');
 const handlers={},matched=[],assets=[];
