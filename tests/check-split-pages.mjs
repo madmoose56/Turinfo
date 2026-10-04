@@ -33,7 +33,7 @@ async function checkPage(near,userAgent='Android'){
   else if(String(url).includes('osrm'))data={code:'Ok',routes:[{distance:60000,duration:3600,geometry:{coordinates:coords}}]};
   else if(String(url).includes('overpass')){
    registryEndpoints.push(url);
-   if(registryFailure==='all'||(registryFailure==='network'&&registryEndpoints.length===1))throw new TypeError('Network unavailable');
+   if(registryFailure==='all'||(registryFailure==='two'&&registryEndpoints.length<=2)||(registryFailure==='network'&&registryEndpoints.length===1))throw new TypeError('Network unavailable');
    if(registryEndpoints.length===1&&registryFailure==='partial')return {ok:true,json:async()=>({remark:'runtime timeout',elements:[]})};
    if(registryEndpoints.length===1&&registryFailure==='invalid')return {ok:true,json:async()=>({})};
    const query=options.body.get('data');const around=query.match(/around:(\d+)/);if(around)searchRadii.push(Number(around[1]));data={elements:[
@@ -86,15 +86,16 @@ async function checkPage(near,userAgent='Android'){
  }
  ids.types.value='charging';
  const runSearch=()=>near?ids.locate.handlers.click():ids.search.handlers.submit({preventDefault(){}});
- for(const failure of ['network','partial','invalid']){
+ for(const failure of ['network','partial','invalid','two']){
   registryFailure=failure;registryEndpoints.length=0;await runSearch();
-  assert.notEqual(registryEndpoints[0],registryEndpoints[1]);
-  assert.deepEqual([...new Set(registryEndpoints)].sort(),['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter']);
-  if(!near)assert(registryEndpoints.slice(2).every(url=>url===registryEndpoints[1]));
+  const attempts=failure==='two'?3:2;
+  const attempted=registryEndpoints.slice(0,attempts);assert.equal(new Set(attempted).size,attempts);
+  assert(attempted.every(url=>['https://overpass.openstreetmap.fr/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'].includes(url)));
+  if(!near)assert(registryEndpoints.slice(attempts).every(url=>url===attempted.at(-1)));
   assert(!ids.status.textContent.includes('Ingen av kartregisterets'));
  }
  registryFailure='all';const previousCount=ids.count.textContent;await runSearch();
- assert(ids.status.textContent.includes('Ingen av kartregisterets to servere'));
+ assert(ids.status.textContent.includes('Ingen av kartregisterets servere'));
  assert(ids.status.textContent.includes('Viser fortsatt forrige'));
  assert.equal(ids.count.textContent,previousCount);assert.equal(ids[near?'locate':'submit'].disabled,false);
 }
