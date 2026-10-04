@@ -1,4 +1,4 @@
-import {haversine,routePosition} from './geo.js?v=22';
+import {haversine,routePosition} from './geo.js?v=23';
 
 export function selectedTypes(value){if(value==='all')return ['hotel','fuel','charging'];if(value==='both')return ['hotel','fuel'];return [...new Set(String(value??'hotel').split(',').filter(t=>['hotel','fuel','charging','activity','family','outdoor','culture','food'].includes(t)))];}
 export function typeValue(types=['hotel']){return types.join(',');}
@@ -15,7 +15,7 @@ const activityGroups={
 export function activityCategories(tags){return activityTypes.filter(type=>Object.entries(activityGroups[type]).some(([key,values])=>values[tags[key]]));}
 export function activityLabel(tags){for(const type of activityTypes)for(const [key,values] of Object.entries(activityGroups[type]))if(values[tags[key]])return values[tags[key]];return null;}
 function selectors(types){const selected=[...new Set(types.flatMap(t=>t==='activity'?activityTypes:[t]))];return selected.flatMap(type=>activityGroups[type]?Object.entries(activityGroups[type]).map(([key,values])=>'["'+key+'"~"^('+Object.keys(values).join('|')+')$"]["access"!~"^(private|no)$"]'):type==='charging'?'["amenity"="charging_station"]["motorcar"!="no"]["access"!~"^(private|no)$"]':type==='fuel'?'["amenity"="fuel"]':'["tourism"="hotel"]');}
-function query(types,around){return `[out:json][timeout:45];(${selectors(types).map(selector=>`nwr${selector}(around:${around});`).join('')});out center tags;`;}
+function query(types,around){return `[out:json][timeout:15];(${selectors(types).map(selector=>`nwr${selector}(around:${around});`).join('')});out center tags;`;}
 export function routeQuery(coords,radius,types){
   // Limit the server's tag lookup to the route's region. The exact distance
   // to every segment is still checked locally in extractPlaces.
@@ -23,7 +23,7 @@ export function routeQuery(coords,radius,types){
   for(const [lon,lat] of coords){west=Math.min(west,lon);east=Math.max(east,lon);south=Math.min(south,lat);north=Math.max(north,lat);}
   const latPad=(radius+150)/110000,lonPad=latPad/Math.cos(Math.max(Math.abs(south),Math.abs(north))*Math.PI/180);
   const box=[south-latPad,west-lonPad,north+latPad,east+lonPad].map(n=>n.toFixed(6)).join(',');
-  return `[out:json][timeout:45];(${selectors(types).map(selector=>`nwr${selector}(${box});`).join('')});out center tags;`;
+  return `[out:json][timeout:15];(${selectors(types).map(selector=>`nwr${selector}(${box});`).join('')});out center tags;`;
 }
 // Adjacent pieces share boundaries, including long sparse geometry segments.
 export function routeQueries(coords,radius,types,maxLength=10000){
