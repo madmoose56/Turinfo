@@ -1,4 +1,4 @@
-import {haversine,routePosition,simplify} from './geo.js?v=19';
+import {haversine,routePosition} from './geo.js?v=20';
 
 export function selectedTypes(value){if(value==='all')return ['hotel','fuel','charging'];if(value==='both')return ['hotel','fuel'];return [...new Set(String(value??'hotel').split(',').filter(t=>['hotel','fuel','charging','activity','family','outdoor','culture','food'].includes(t)))];}
 export function typeValue(types=['hotel']){return types.join(',');}
@@ -16,7 +16,15 @@ export function activityCategories(tags){return activityTypes.filter(type=>Objec
 export function activityLabel(tags){for(const type of activityTypes)for(const [key,values] of Object.entries(activityGroups[type]))if(values[tags[key]])return values[tags[key]];return null;}
 function selectors(types){const selected=[...new Set(types.flatMap(t=>t==='activity'?activityTypes:[t]))];return selected.flatMap(type=>activityGroups[type]?Object.entries(activityGroups[type]).map(([key,values])=>'["'+key+'"~"^('+Object.keys(values).join('|')+')$"]["access"!~"^(private|no)$"]'):type==='charging'?'["amenity"="charging_station"]["motorcar"!="no"]["access"!~"^(private|no)$"]':type==='fuel'?'["amenity"="fuel"]':'["tourism"="hotel"]');}
 function query(types,around){return `[out:json][timeout:45];(${selectors(types).map(selector=>`nwr${selector}(around:${around});`).join('')});out center tags;`;}
-export function routeQuery(coords,radius,types){const line=simplify(coords,100).map(p=>`${p[1].toFixed(6)},${p[0].toFixed(6)}`).join(',');return query(types,`${radius+150},${line}`);}
+export function routeQuery(coords,radius,types){
+  // Limit the server's tag lookup to the route's region. The exact distance
+  // to every segment is still checked locally in extractPlaces.
+  let west=Infinity,south=Infinity,east=-Infinity,north=-Infinity;
+  for(const [lon,lat] of coords){west=Math.min(west,lon);east=Math.max(east,lon);south=Math.min(south,lat);north=Math.max(north,lat);}
+  const latPad=(radius+150)/110000,lonPad=latPad/Math.cos(Math.max(Math.abs(south),Math.abs(north))*Math.PI/180);
+  const box=[south-latPad,west-lonPad,north+latPad,east+lonPad].map(n=>n.toFixed(6)).join(',');
+  return `[out:json][timeout:45];(${selectors(types).map(selector=>`nwr${selector}(${box});`).join('')});out center tags;`;
+}
 export function nearQuery(coords,radius,types){
   const [lon,lat]=coords;
   if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lon)>180||Math.abs(lat)>90||!Number.isFinite(radius)||radius<1000||radius>50000)throw new Error('Ugyldig posisjon eller søkeradius.');

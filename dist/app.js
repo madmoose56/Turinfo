@@ -1,6 +1,6 @@
-import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=19';
-import {getPosition} from './nearby.js?v=19';
-import {selectedTypes,resultLabel,routeQuery,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,hasActivities} from './poi.js?v=19';
+import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=20';
+import {getPosition} from './nearby.js?v=20';
+import {selectedTypes,resultLabel,routeQuery,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,hasActivities} from './poi.js?v=20';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 async function loadPlaces(){if(!placesPromise)placesPromise=json('./places.json',{},30000).then(data=>{const list=$('cities');const names=[...new Set(data.places.map(p=>p.name))];list.replaceChildren(...names.map(name=>{const option=el('option');option.value=name;return option;}));return data.places;}).catch(error=>{placesPromise=null;throw error;});return placesPromise;}
