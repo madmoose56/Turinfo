@@ -1,4 +1,4 @@
-import {haversine,routePosition} from './geo.js?v=20';
+import {haversine,routePosition} from './geo.js?v=21';
 
 export function selectedTypes(value){if(value==='all')return ['hotel','fuel','charging'];if(value==='both')return ['hotel','fuel'];return [...new Set(String(value??'hotel').split(',').filter(t=>['hotel','fuel','charging','activity','family','outdoor','culture','food'].includes(t)))];}
 export function typeValue(types=['hotel']){return types.join(',');}
@@ -25,6 +25,24 @@ export function routeQuery(coords,radius,types){
   const box=[south-latPad,west-lonPad,north+latPad,east+lonPad].map(n=>n.toFixed(6)).join(',');
   return `[out:json][timeout:45];(${selectors(types).map(selector=>`nwr${selector}(${box});`).join('')});out center tags;`;
 }
+// Adjacent pieces share boundaries, including long sparse geometry segments.
+export function routeQueries(coords,radius,types,maxLength=10000){
+  if(coords.length<2||!Number.isFinite(maxLength)||maxLength<=0)throw new Error('Ugyldig rute.');
+  const pieces=[];let piece=[coords[0]],length=0;
+  for(let i=1;i<coords.length;i++){
+    let start=coords[i-1],end=coords[i],remaining=haversine(start,end);
+    while(length+remaining>maxLength){
+      const ratio=(maxLength-length)/remaining;
+      const boundary=[start[0]+(end[0]-start[0])*ratio,start[1]+(end[1]-start[1])*ratio];
+      piece.push(boundary);pieces.push(piece);piece=[boundary];length=0;
+      start=boundary;remaining=haversine(start,end);
+    }
+    piece.push(end);length+=remaining;
+  }
+  if(piece.length>1)pieces.push(piece);
+  return pieces.map(part=>routeQuery(part,radius,types));
+}
+
 export function nearQuery(coords,radius,types){
   const [lon,lat]=coords;
   if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lon)>180||Math.abs(lat)>90||!Number.isFinite(radius)||radius<1000||radius>50000)throw new Error('Ugyldig posisjon eller søkeradius.');
