@@ -4,8 +4,10 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const root='dist/';
 class Node {
- constructor(){this.children=[];this.handlers={};this.value='';this.textContent='';this.classList={add(){},toggle(){}};}
- append(...items){this.children.push(...items)} replaceChildren(...items){this.children=items}
+ constructor(){this.children=[];this.handlers={};this.value='';this._text='';this.classList={add(){},toggle(){}};}
+ get textContent(){return this._text+this.children.map(child=>child.textContent).join('')}
+ set textContent(value){this._text=String(value);this.children=[]}
+ append(...items){this.children.push(...items)} replaceChildren(...items){this._text='';this.children=items}
  addEventListener(type,fn){this.handlers[type]=fn} setAttribute(){} insertBefore(){}
 }
 async function checkPage(near,userAgent='Android'){
@@ -67,7 +69,7 @@ async function checkPage(near,userAgent='Android'){
   ids.types.value='both';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});
   assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-stasjon');assert(ids.status.textContent.includes('300 m'));assert.equal(gps,0);
   ids.types.value='charging';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-lader');assert.equal(ids['charging-legend'].hidden,false);
-  ids.types.value='all';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'2');assert.equal(ids['category-counts'].textContent,'Hoteller: 0 · Bensin: 1 · Elbil-lading: 1');assert.equal(gps,0);
+  ids.types.value='all';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'2');assert.deepEqual(ids['category-counts'].children.map(node=>node.textContent),['Hoteller: 0','Bensin: 1','Elbil-lading: 1']);assert.equal(gps,0);
  }
  for(const values of [['hotel','charging'],['fuel','charging'],['culture'],['hotel','fuel','charging','culture'],[]]){
   const inputs=choices.filter(i=>i.name==='poi-type');inputs.forEach(i=>i.checked=values.includes(i.value));documentHandlers.change({target:inputs[0]});
