@@ -4,7 +4,7 @@ Installerbar PWA for turer i Norge. Finn hoteller, bensinstasjoner, elbillading 
 
 ## Funksjoner
 
-- Rutesøk mellom norske byer og tettsteder. Avstand fra valgt kjørerute: Ved vei (300 m), 1 km, 2 km eller 3 km.
+- Rutesøk fra et valgt norsk sted eller «Der jeg er» (GPS) til en norsk by eller et tettsted. Avstand fra valgt kjørerute: Ved vei (300 m), 1 km, 2 km eller 3 km.
 - Hoteller i startstedets sammenhengende tettstedsområde utelates. Andre kategorier tas med.
 - Aktiviteter: Familie, Friluft og sport, Kultur, Mat og drikke. Flere kategorier kan kombineres.
 - Nær meg viser maksimalt 10 treff totalt, nærmest først i luftlinje. Søket utvides automatisk fra 10 til 25 og 50 km ved behov.
@@ -26,7 +26,7 @@ npm test
 
 Byer og tettsteder: Photon og SSB 2026. Kjørerute: OSRM. Steder: OpenStreetMap via Overpass. Kart: Leaflet/OpenStreetMap.
 
-GPS hentes bare etter knappetrykk og nettleserens tillatelse. Koordinatene sendes til Overpass og brukes i kartvisningen; GPS-søk lagres ikke lokalt. Rutesøk lagres i nettleserens localStorage. Offentlige karttjenester kan ha nedetid og begrense trafikk. Data er ufullstendige; ingen sanntidspriser, åpningstidsvurdering, ledige rom eller ladeledighet. Avstander til steder er luftlinje til punkt/arealsenter, ikke garanti om kjørbar adkomst.
+GPS hentes bare etter knappetrykk og nettleserens tillatelse. GPS-koordinatene sendes til OSRM for GPS-ruter og til Overpass for stedssøk, og brukes i kartvisningen. Ruter og søk fra GPS lagres ikke lokalt. Rutesøk fra navngitte steder lagres i nettleserens localStorage. Offentlige karttjenester kan ha nedetid og begrense trafikk. Data er ufullstendige; ingen sanntidspriser, åpningstidsvurdering, ledige rom eller ladeledighet. Avstander til steder er luftlinje til punkt/arealsenter, ikke garanti om kjørbar adkomst.
 
 OpenStreetMap: https://www.openstreetmap.org/copyright
 SSB-kilden ligger i dist/places.json (sourceUrl, year). Tettstedsgrenser er forenklet og håndterer ikke innvendige hull separat.
