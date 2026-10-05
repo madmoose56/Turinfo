@@ -14,7 +14,7 @@ async function checkPage(near,userAgent='Android'){
  const choices=[...html.matchAll(/<input[^>]*name="([^"]+)"[^>]*value="([^"]+)"[^>]*>/g)].map(m=>Object.assign(new Node(),{name:m[1],value:m[2],checked:m[0].includes('checked')}));
  const documentHandlers={};
  assert.equal(Boolean(ids.search),!near);assert.equal(Boolean(ids.locate),near);
- assert(html.includes(near?'href="./">Rutesøk':'href="./nearby.html">Nær meg'));
+ if(near)assert(html.includes('href="./">Rutesøk'));else{assert(!html.includes('class="page-nav"'));assert(!html.includes('href="./nearby.html">Nær meg'));assert(html.includes('id="from-mode"'));ids['from-mode'].value='place';}
  ids.types.value='hotel';
  if(near)assert(!html.includes('near-radius'));else{ids.from.value='Oslo';ids.to.value='Moss';ids.radius.value='0.3';}
  let gps=0,requests=0,reads=0,writes=0,deny=false,many=false,registryFailure='',otherRegistryRequests=0;
@@ -148,4 +148,4 @@ let install;handlers.install({waitUntil:p=>install=p});await install;assert(asse
 for(const [url,expected] of [['https://example.test/nearby.html','./nearby.html'],['https://example.test/','./index.html']]){
  let response;handlers.fetch({request:{method:'GET',mode:'navigate',url},respondWith:p=>response=p});assert.equal(await response,expected);
 }
-console.log('PASS: route home has no nearby controls; nearby page has no route controls; mutual navigation; no GPS or route/cache access on nearby opening; permission error and combined GPS results; main route filter and Ved vei preserved; correct offline fallback; mixed hotel reserve searches show unavailable categories without overwriting complete route cache, and recover when other categories respond.');
+console.log('PASS: route home has no nearby controls; nearby page has no route controls; GPS start choice on the route home and legacy nearby back navigation; no GPS or route/cache access on nearby opening; permission error and combined GPS results; main route filter and Ved vei preserved; correct offline fallback; mixed hotel reserve searches show unavailable categories without overwriting complete route cache, and recover when other categories respond.');
