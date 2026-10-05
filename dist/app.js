@@ -1,7 +1,7 @@
-import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=28';
-import {getPosition} from './nearby.js?v=28';
-import {fixedMapView,routeAhead,headingTarget} from './map-view.js?v=28';
-import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=28';
+import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=29';
+import {getPosition} from './nearby.js?v=29';
+import {fixedMapView,routeAhead,headingTarget} from './map-view.js?v=29';
+import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=29';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 let gpsPosition,gpsMarker,gpsAccuracy,cameraAnchor=[10.73,59.66],cameraTarget=null;
@@ -20,7 +20,8 @@ function refreshFromMode(){
   $('from').required=!gps;$('from').disabled=busy||gps;$('swap').hidden=gps;$('swap').disabled=busy||gps;
   document.querySelectorAll('input[name="from-mode-choice"]').forEach(input=>{input.checked=input.value===(gps?'gps':'place');});
 }
-function updateSearchLabels(){const label=resultLabel(selectedTypes($('types').value));if($('submit'))$('submit').textContent='Finn '+label;if($('locate'))$('locate').textContent='Finn '+label+' nær meg';if($('nearby-title'))$('nearby-title').textContent=label[0].toUpperCase()+label.slice(1)+' nær deg';syncChoices();}
+function routeButtonText(){if(!busy)return 'Søk langs ruta';const names={hotel:'hoteller',fuel:'bensin',charging:'elbil-lading',family:'familie',outdoor:'friluft og sport',culture:'kultur',food:'mat og drikke',activity:'aktiviteter'};return 'Søker: '+selectedTypes($('types').value).map(type=>names[type]).join(' · ')+' …';}
+function updateSearchLabels(){const label=resultLabel(selectedTypes($('types').value));if($('submit'))$('submit').textContent=routeButtonText();if($('locate'))$('locate').textContent='Finn '+label+' nær meg';if($('nearby-title'))$('nearby-title').textContent=label[0].toUpperCase()+label.slice(1)+' nær deg';syncChoices();}
 $('types').addEventListener('change',()=>{$('category-counts').hidden=true;updateSearchLabels();});
 function syncChoices(){
   const types=selectedTypes($('types').value);
@@ -169,7 +170,7 @@ async function search(event){
   if(!to||(!gps&&!from)){status(gps?'Fyll inn målstedet.':'Fyll inn både startsted og målsted.',true);return;}
   if(!gps&&from.toLocaleLowerCase('nb')===to.toLocaleLowerCase('nb')){status('Velg to forskjellige byer eller tettsteder.',true);return;}
   if(!navigator.onLine){status('Du er uten nett. Siste lagrede søk kan fortsatt vises, men nye søk krever internett.',true);return;}
-  setBusy(true);$('submit').textContent='Søker …';
+  setBusy(true);$('submit').textContent=routeButtonText();
   try{
     let position,a;
     if(gps){status('Henter GPS-posisjonen din. Tillat posisjon når telefonen spør.');position=await getPosition(navigator.geolocation);a={name:'Der jeg er',coords:position.coords,gpsOrigin:true};}
