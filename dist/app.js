@@ -1,16 +1,24 @@
-import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=27';
-import {getPosition} from './nearby.js?v=27';
-import {fixedMapView,routeAhead,headingTarget} from './map-view.js?v=27';
-import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=27';
+import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=28';
+import {getPosition} from './nearby.js?v=28';
+import {fixedMapView,routeAhead,headingTarget} from './map-view.js?v=28';
+import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=28';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 let gpsPosition,gpsMarker,gpsAccuracy,cameraAnchor=[10.73,59.66],cameraTarget=null;
 async function loadPlaces(){if(!placesPromise)placesPromise=json('./places.json',{},30000).then(data=>{const list=$('cities');const names=[...new Set(data.places.map(p=>p.name))];list.replaceChildren(...names.map(name=>{const option=el('option');option.value=name;return option;}));return data.places;}).catch(error=>{placesPromise=null;throw error;});return placesPromise;}
 function withoutStartHotels(data,places){
   const needsHotels=(data.types??['hotel']).includes('hotel'),startArea=needsHotels?findStartSettlement(data.from,places):null;
-  if(needsHotels&&!startArea)throw new Error('Fant ikke tettstedsgrensen for '+data.from.name+'. Velg et startsted fra forslagene.');
-  const hotels=data.hotels.filter(h=>(h.kind&&h.kind!=='hotel')||excludeStartHotels([h],data.from,startArea).length);
+  if(needsHotels&&!startArea&&!data.from.gpsOrigin)throw new Error('Fant ikke tettstedsgrensen for '+data.from.name+'. Velg et startsted fra forslagene.');
+  const filterFrom=data.from.gpsOrigin&&startArea?{...data.from,name:startArea.name}:data.from;
+  const hotels=data.hotels.filter(h=>!startArea||(h.kind&&h.kind!=='hotel')||excludeStartHotels([h],filterFrom,startArea).length);
   return {...data,hotels,startAreaName:startArea?.name??'',excludedCount:data.hotels.length-hotels.length,filterVersion:3};
+}
+function fromGPS(){return $('from-mode')?.value==='gps';}
+function refreshFromMode(){
+  if(isNearby)return;
+  const gps=fromGPS();$('from-place').hidden=gps;$('from-gps-note').hidden=!gps;
+  $('from').required=!gps;$('from').disabled=busy||gps;$('swap').hidden=gps;$('swap').disabled=busy||gps;
+  document.querySelectorAll('input[name="from-mode-choice"]').forEach(input=>{input.checked=input.value===(gps?'gps':'place');});
 }
 function updateSearchLabels(){const label=resultLabel(selectedTypes($('types').value));if($('submit'))$('submit').textContent='Finn '+label;if($('locate'))$('locate').textContent='Finn '+label+' nær meg';if($('nearby-title'))$('nearby-title').textContent=label[0].toUpperCase()+label.slice(1)+' nær deg';syncChoices();}
 $('types').addEventListener('change',()=>{$('category-counts').hidden=true;updateSearchLabels();});
@@ -29,7 +37,9 @@ document.addEventListener('change',event=>{
   if(input.name==='poi-type'){
     $('types').value=[...document.querySelectorAll('input[name="poi-type"]')].filter(item=>item.checked).map(item=>item.value).join(',');updateSearchLabels();
   }else if(input.name==='radius-choice'){$('radius').value=input.value;syncChoices();}
+  else if(input.name==='from-mode-choice'){$('from-mode').value=input.value;refreshFromMode();}
 });
+$('from-mode')?.addEventListener('change',refreshFromMode);
 function status(message,error=false){if(error&&$('category-counts')){$('category-counts').hidden=false;$('category-counts').textContent='Søket ble ikke fullført. Ingen nye antall treff å vise.';}$('status').textContent=message;$('status').classList.toggle('error',error);}
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;}
 function safeWebsite(raw){if(!raw)return null;try{const u=new URL(raw.match(/^https?:\/\//i)?raw:'https://'+raw);return ['https:','http:'].includes(u.protocol)?u.href:null;}catch{return null;}}
@@ -83,7 +93,7 @@ function render(data,cached=false){
   if(near){other=el('div',Math.ceil(data.accuracy)+' m','stat');other.append(el('small','Oppgitt posisjonsnøyaktighet'));}
   else{const minutes=Math.round(data.route.duration/60);other=el('div',minutes>=60?Math.floor(minutes/60)+' t '+minutes%60+' min':minutes+' min','stat');other.append(el('small','Estimert, uten trafikk'));}
   $('summary').append(distance,other);
-  const note=near?'Steder der du befinner deg tas med. Avstandene er i luftlinje.':types.includes('hotel')?'Hoteller i startstedets tettstedsområde er utelatt: '+data.startAreaName+(types.some(t=>t!=='hotel')?'. Bensinstasjoner, ladestasjoner og aktiviteter i startstedet tas med.':''):'Bensinstasjoner, ladestasjoner og aktiviteter i startstedet tas med.';
+  const note=near?'Steder der du befinner deg tas med. Avstandene er i luftlinje.':types.includes('hotel')?(data.startAreaName?'Hoteller i startstedets tettstedsområde er utelatt: '+data.startAreaName+(types.some(t=>t!=='hotel')?'. Bensinstasjoner, ladestasjoner og aktiviteter i startstedet tas med.':''):'Startposisjonen er utenfor et tettstedsområde. Hoteller langs ruten tas med.'):'Bensinstasjoner, ladestasjoner og aktiviteter i startstedet tas med.';
   $('summary').append(el('small',note,'summary-exclusion'));
   renderCategoryCounts(data,cached);$('count').textContent=String(data.hotels.length);$('results').replaceChildren();$('navigation-hint').hidden=!data.hotels.length;
   if(!data.hotels.length){const empty=el('div',undefined,'empty'),availableLabel=resultLabel(types.filter(type=>!(data.unavailableTypes??[]).includes(type)));empty.append(el('strong','Ingen '+availableLabel+' innen '+radiusText(data.radius)+(near?' fra deg':' fra ruten')),el('p',near?'Velg andre kategorier eller prøv igjen fra et annet sted.':'Øk avstanden eller prøv et nytt søk.'));$('results').append(empty);}
@@ -113,7 +123,7 @@ function render(data,cached=false){
   }
 }
 function radiusText(radius){return Number(radius)===0.3?'300 m':radius+' km';}
-function setBusy(value){if(value&&$('category-counts'))$('category-counts').hidden=true;busy=value;document.querySelectorAll('#search input,#search button,#search select,#nearby button,#nearby select,#nearby input,#types,#map-location').forEach(c=>c.disabled=value);}
+function setBusy(value){if(value&&$('category-counts'))$('category-counts').hidden=true;busy=value;document.querySelectorAll('#search input,#search button,#search select,#nearby button,#nearby select,#nearby input,#types,#map-location').forEach(c=>c.disabled=value);refreshFromMode();}
 async function nearbySearch(locationOverride){
   if(busy)return;if(!selectedTypes($('types').value).length){status('Velg minst én type: Hoteller, Bensin, Elbil-lading eller Aktiviteter.',true);return;}if(!navigator.onLine){status('Du er uten nett. Søk nær deg krever internett.',true);return;}
   setBusy(true);$('locate').textContent='Henter posisjon …';
@@ -152,8 +162,41 @@ async function overpass(query){
   throw new Error('Ingen av kartregisterets servere svarte med et fullstendig søk. Vent et minutt og prøv igjen.');
 }
 $('locate')?.addEventListener('click',nearbySearch);
-async function search(event){event?.preventDefault();if(busy)return;const from=$('from').value.trim(),to=$('to').value.trim(),radius=Number($('radius').value),types=selectedTypes($('types').value),label=resultLabel(types);if(!types.length){status('Velg minst én type: Hoteller, Bensin, Elbil-lading eller Aktiviteter.',true);return;}if(!from||!to){status('Fyll inn både startsted og målsted.',true);return;}if(from.toLocaleLowerCase('nb')===to.toLocaleLowerCase('nb')){status('Velg to forskjellige byer eller tettsteder.',true);return;}if(!navigator.onLine){status('Du er uten nett. Siste lagrede søk kan fortsatt vises, men nye søk krever internett.',true);return;}setBusy(true);$('submit').textContent='Søker …';try{status('Finner byene eller tettstedene …');const a=await city(from),b=await city(to);if(a.coords.join(',')===b.coords.join(','))throw new Error('Begge navnene peker til samme sted. Velg to forskjellige byer eller tettsteder.');status('Beregner kjøreruten …');const r=await json(`https://router.project-osrm.org/route/v1/driving/${a.coords.join(',')};${b.coords.join(',')}?overview=full&geometries=geojson&steps=false`);if(r.code!=='Ok'||!r.routes?.length)throw new Error('Fant ingen kjørbar rute mellom stedene.');const route=r.routes[0];const places=await loadPlaces();if(types.includes('hotel')&&!findStartSettlement(a,places))throw new Error('Fant ikke tettstedsgrensen for '+a.name+'. Velg et startsted fra forslagene.');const coords=route.geometry.coordinates,elements=new Map();let hotelSnapshotAt,unavailableTypes=[];try{for(const query of routeQueries(coords,radius*1000,types)){status('Leter etter '+label+' langs ruten …');const part=await overpass(query);for(const element of part.elements)elements.set(element.type+'/'+element.id,element);}}catch(error){if(!types.includes('hotel'))throw error;status('Henter hotelloversikten …');const snapshot=await json('./hotels.json',{},10000);if(!snapshot.updatedAt||!Array.isArray(snapshot.elements))throw error;hotelSnapshotAt=snapshot.updatedAt;elements.clear();for(const element of snapshot.elements)elements.set(element.type+'/'+element.id,element);const remaining=types.filter(type=>type!=='hotel');if(remaining.length){const otherElements=new Map();try{for(const query of routeQueries(coords,radius*1000,remaining)){const part=await overpass(query);for(const element of part.elements)otherElements.set(element.type+'/'+element.id,element);}for(const [id,element] of otherElements)elements.set(id,element);}catch{unavailableTypes=remaining;}}}const hotelsData={elements:[...elements.values()]};const data=withoutStartHotels({from:a,to:b,radius,types,route:{distance:route.distance,duration:route.duration,geometry:route.geometry},hotels:extractPlaces(hotelsData.elements??[],route.geometry.coordinates,radius*1000,types),hotelSnapshotAt,unavailableTypes,savedAt:Date.now()},places);render(data);if(!unavailableTypes.length)try{localStorage.setItem('veihotell-last-v3',JSON.stringify(data));}catch{status('Søket er klart, men kunne ikke lagres på denne enheten.');}}catch(error){const msg=error.name==='AbortError'?'Søket tok for lang tid. Prøv igjen om litt.':error.message;status(msg+(active?' Viser fortsatt forrige vellykkede søk.':''),true);}finally{setBusy(false);updateSearchLabels();}}
-for(const id of ['from','to'])$(id)?.addEventListener('input',()=>{$('category-counts').hidden=true;});$('search')?.addEventListener('submit',search);$('radius')?.addEventListener('change',syncChoices);$('swap')?.addEventListener('click',()=>{$('category-counts').hidden=true;const value=$('from').value;$('from').value=$('to').value;$('to').value=value;});
+async function search(event){
+  event?.preventDefault();if(busy)return;
+  const gps=fromGPS(),from=$('from').value.trim(),to=$('to').value.trim(),radius=Number($('radius').value),types=selectedTypes($('types').value),label=resultLabel(types);
+  if(!types.length){status('Velg minst én type: Hoteller, Bensin, Elbil-lading eller Aktiviteter.',true);return;}
+  if(!to||(!gps&&!from)){status(gps?'Fyll inn målstedet.':'Fyll inn både startsted og målsted.',true);return;}
+  if(!gps&&from.toLocaleLowerCase('nb')===to.toLocaleLowerCase('nb')){status('Velg to forskjellige byer eller tettsteder.',true);return;}
+  if(!navigator.onLine){status('Du er uten nett. Siste lagrede søk kan fortsatt vises, men nye søk krever internett.',true);return;}
+  setBusy(true);$('submit').textContent='Søker …';
+  try{
+    let position,a;
+    if(gps){status('Henter GPS-posisjonen din. Tillat posisjon når telefonen spør.');position=await getPosition(navigator.geolocation);a={name:'Der jeg er',coords:position.coords,gpsOrigin:true};}
+    else{status('Finner startstedet …');a=await city(from);}
+    status('Finner målstedet …');const b=await city(to);
+    if(a.coords.join(',')===b.coords.join(','))throw new Error('Start og mål er på samme sted. Velg et annet målsted.');
+    status('Beregner kjøreruten …');
+    const r=await json(`https://router.project-osrm.org/route/v1/driving/${a.coords.join(',')};${b.coords.join(',')}?overview=full&geometries=geojson&steps=false`);
+    if(r.code!=='Ok'||!r.routes?.length)throw new Error('Fant ingen kjørbar rute mellom stedene.');
+    const route=r.routes[0],places=await loadPlaces();
+    if(types.includes('hotel')&&!a.gpsOrigin&&!findStartSettlement(a,places))throw new Error('Fant ikke tettstedsgrensen for '+a.name+'. Velg et startsted fra forslagene.');
+    const coords=route.geometry.coordinates,elements=new Map();let hotelSnapshotAt,unavailableTypes=[];
+    try{for(const query of routeQueries(coords,radius*1000,types)){status('Leter etter '+label+' langs ruten …');const part=await overpass(query);for(const element of part.elements)elements.set(element.type+'/'+element.id,element);}}
+    catch(error){
+      if(!types.includes('hotel'))throw error;status('Henter hotelloversikten …');const snapshot=await json('./hotels.json',{},10000);
+      if(!snapshot.updatedAt||!Array.isArray(snapshot.elements))throw error;hotelSnapshotAt=snapshot.updatedAt;elements.clear();for(const element of snapshot.elements)elements.set(element.type+'/'+element.id,element);
+      const remaining=types.filter(type=>type!=='hotel');
+      if(remaining.length){const otherElements=new Map();try{for(const query of routeQueries(coords,radius*1000,remaining)){const part=await overpass(query);for(const element of part.elements)otherElements.set(element.type+'/'+element.id,element);}for(const [id,element] of otherElements)elements.set(id,element);}catch{unavailableTypes=remaining;}}
+    }
+    const data=withoutStartHotels({from:a,to:b,radius,types,route:{distance:route.distance,duration:route.duration,geometry:route.geometry},hotels:extractPlaces([...elements.values()],route.geometry.coordinates,radius*1000,types),hotelSnapshotAt,unavailableTypes,savedAt:Date.now()},places);
+    if(position){gpsPosition=position;$('map-location-status').textContent='Blå prikk: rutens start fra din GPS-posisjon. Oppgitt nøyaktighet '+Math.ceil(position.accuracy)+' m.';}
+    render(data);
+    if(!gps&&!unavailableTypes.length)try{localStorage.setItem('veihotell-last-v3',JSON.stringify(data));}catch{status('Søket er klart, men kunne ikke lagres på denne enheten.');}
+  }catch(error){const msg=error.name==='AbortError'?'Søket tok for lang tid. Prøv igjen om litt.':error.message;status(msg+(active?' Viser fortsatt forrige vellykkede søk.':''),true);}
+  finally{setBusy(false);updateSearchLabels();}
+}
+for(const id of ['from','to'])$(id)?.addEventListener('input',()=>{$('category-counts').hidden=true;});$('search')?.addEventListener('submit',search);$('radius')?.addEventListener('change',syncChoices);$('swap')?.addEventListener('click',()=>{if(fromGPS())return;$('category-counts').hidden=true;const value=$('from').value;$('from').value=$('to').value;$('to').value=value;});
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;$('install').hidden=false;});$('install').addEventListener('click',async()=>{if(!deferredInstall)return;await deferredInstall.prompt();deferredInstall=null;$('install').hidden=true;});window.addEventListener('appinstalled',()=>{$('install').hidden=true;});
 window.addEventListener('offline',()=>status('Du er uten nett. Viser siste søk; bakgrunnskartet kan være utilgjengelig.'));window.addEventListener('online',()=>status('Du er på nett igjen. Du kan søke etter en ny rute.'));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
@@ -170,6 +213,6 @@ mapDialog.addEventListener('close',()=>{overview.append(mapArea);resizeMap();$('
 initMap();
 $('map-location').addEventListener('click',showMyPosition);$('map-reset').addEventListener('click',resetMapView);
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(resizeMap).observe($('map'));
-async function bootstrap(){try{const places=await loadPlaces();let restored=false;try{const stored=JSON.parse(localStorage.getItem('veihotell-last-v3')??localStorage.getItem('veihotell-last-v2')??localStorage.getItem('veihotell-last-v1'));if(stored?.route?.geometry?.coordinates?.length&&Array.isArray(stored.hotels)){const data=stored.filterVersion===3?stored:withoutStartHotels(stored,places);restored=true;$('types').value=typeValue(data.types);updateSearchLabels();$('from').value=data.from.name;$('to').value=data.to.name;$('radius').value=data.radius;syncChoices();render(data,true);localStorage.setItem('veihotell-last-v3',JSON.stringify(data));}}catch{}if(!restored)search();}catch{status('Stedsoversikten kunne ikke lastes. Koble til internett og prøv igjen.',true);}}if(!isNearby)bootstrap();else updateSearchLabels();
+async function bootstrap(){try{const places=await loadPlaces();if(busy||fromGPS())return;let restored=false;try{const stored=JSON.parse(localStorage.getItem('veihotell-last-v3')??localStorage.getItem('veihotell-last-v2')??localStorage.getItem('veihotell-last-v1'));if(!stored?.from?.gpsOrigin&&stored?.route?.geometry?.coordinates?.length&&Array.isArray(stored.hotels)){const data=stored.filterVersion===3?stored:withoutStartHotels(stored,places);restored=true;$('types').value=typeValue(data.types);updateSearchLabels();$('from').value=data.from.name;$('to').value=data.to.name;$('radius').value=data.radius;syncChoices();render(data,true);localStorage.setItem('veihotell-last-v3',JSON.stringify(data));}}catch{}if(!restored)search();}catch{status('Stedsoversikten kunne ikke lastes. Koble til internett og prøv igjen.',true);}}refreshFromMode();if(!isNearby)bootstrap();else updateSearchLabels();
 
 
