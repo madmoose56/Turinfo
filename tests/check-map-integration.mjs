@@ -29,7 +29,7 @@ function storedRoute(){
     {id:'node/903',kind:'charging',name:'Kart-lading',coords:[10.8004,59.70],tags:{amenity:'charging_station'},distance:25,along:25000}
   ]};
 }
-async function harness(near,{restored=false}={}){
+async function harness(near,{restored=false,gpsStart=false}={}){
   const html=fs.readFileSync(path.join(root,near?'nearby.html':'index.html'),'utf8');
   const ids=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],new Node()]));
   assert(ids['map-location'],'Both maps provide an explicit GPS button');
@@ -78,7 +78,7 @@ async function harness(near,{restored=false}={}){
   };
   const context=vm.createContext({console,URL,URLSearchParams,AbortController,setTimeout,clearTimeout,Date,Intl,Promise,
     L:leaflet,document,
-    window:{L:leaflet,addEventListener:(type,fn)=>windowHandlers[type]=fn},
+    window:{L:leaflet,location:{search:gpsStart?'?from=gps':''},addEventListener:(type,fn)=>windowHandlers[type]=fn},
     navigator:{userAgent:'iPhone',onLine:true,geolocation:{getCurrentPosition(ok,fail){gpsCalls++;denied?fail({code:1}):ok({coords:{longitude:gpsCoords[0],latitude:gpsCoords[1],accuracy:12,heading:180}});}}},
     localStorage:{getItem:()=>restored?JSON.stringify(storedRoute()):null,setItem:(key,value)=>writes.push({key,value})},
     sessionStorage:{getItem:()=>null,setItem(){}},matchMedia:()=>({matches:false,addEventListener(){}}),innerWidth:1200,
@@ -107,7 +107,7 @@ async function harness(near,{restored=false}={}){
     await module.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return module;
   }
   await (await load(path.join(root,'app.js'))).evaluate();
-  for(let i=0;i<50&&!near&&writes.length===0;i++)await new Promise(resolve=>setTimeout(resolve,0));
+  for(let i=0;i<(gpsStart?2:50)&&!near&&writes.length===0;i++)await new Promise(resolve=>setTimeout(resolve,0));
   return {ids,leaflet,writes,map:mapRecords[0],allLayers,windowHandlers,resizeObservers,
     get gpsCalls(){return gpsCalls;},get networkCalls(){return networkCalls;},
     setDenied:value=>denied=value,setSize:value=>mapSize=value};
@@ -144,6 +144,13 @@ function checkGpsEdge(fixture,size=600){
   const x=size/2+(anchor[0]-centre[0])*scale,y=size/2-(anchor[1]-centre[1])*scale;
   assert(Math.abs(x-size/2)<.01&&Math.abs(y-18)<.01,'The southbound route/heading places real GPS at the midpoint of the top edge');
 }
+function checkGpsCenter(fixture,size=600){
+  const view=fixture.map.views.at(-1),rad=Math.PI/180,earth=6378137;
+  const project=([lon,lat])=>[earth*lon*rad,earth*Math.log(Math.tan(Math.PI/4+lat*rad/2))];
+  const anchor=project(gpsCoords),centre=project([view.center[1],view.center[0]]),scale=256*2**view.zoom/(2*Math.PI*earth);
+  const x=size/2+(anchor[0]-centre[0])*scale,y=size/2-(anchor[1]-centre[1])*scale;
+  assert(Math.abs(x-size/2)<.01&&Math.abs(y-size/2)<.01,'Nearby centers the real GPS position so all four directions are visible');
+}
 for(const restored of [false,true]){
   const route=await harness(false,{restored});
   assert.equal(route.gpsCalls,0,'Opening the route page must not request GPS permission');
@@ -167,17 +174,29 @@ for(const restored of [false,true]){
   assert(route.map.invalidations>0,'Moving a Leaflet map to the fullscreen dialog recalculates its pixels');
   route.setSize({x:600,y:600});await route.ids['map-back'].handlers.click();checkTwentyKm(route);
 }
+const gpsReturn=await harness(false,{restored:true,gpsStart:true});
+assert.equal(gpsReturn.ids['from-mode'].value,'gps','The nearby GPS-route return link selects the GPS origin mode');
+assert.equal(gpsReturn.gpsCalls,0,'Opening ?from=gps never requests location');
+assert.equal(gpsReturn.writes.length,0,'A GPS-mode return does not restore or rewrite a previous city route');
+assert.equal(gpsReturn.networkCalls,1,'GPS-mode opening only loads the place suggestions, without querying a route');
+assert.equal(gpsReturn.ids.from.disabled,true);assert.equal(gpsReturn.ids.from.required,false);
+assert.equal(gpsReturn.ids['from-gps-note'].hidden,false);
+checkTwentyKm(gpsReturn);
+await gpsReturn.ids.search.handlers.submit({preventDefault(){}});
+assert.equal(gpsReturn.gpsCalls,1,'The returned GPS-mode route obtains location only when the user submits');
+assert.equal(gpsReturn.writes.length,0,'The returned GPS-mode search does not save location');
 const near=await harness(true);
 assert.equal(near.gpsCalls,0,'Opening nearby does not trigger GPS');
 assert.equal(near.networkCalls,0,'Opening nearby does not perform a search');
 checkTwentyKm(near);
 near.ids.types.value='all';near.ids.types.handlers.change();await near.ids.locate.handlers.click();
 assert.equal(near.gpsCalls,1);assert.equal(near.ids.count.textContent,'3');
-checkGps(near);checkTwentyKm(near);checkResultCoordinates(near);checkGpsEdge(near);
+checkGps(near);checkTwentyKm(near);checkResultCoordinates(near);checkGpsCenter(near);
 assert.equal(near.writes.length,0,'Nearby search never saves a GPS position');
 const area=near.allLayers.find(layer=>layer.kind==='circle'&&!layer.removed&&layer.options.radius>=10000);
 samePoint(area.coords,[gpsCoords[1],gpsCoords[0]],'Nearby search circle shares the GPS marker coordinates');
 near.setSize({x:1000,y:1000});await near.ids['map-open'].handlers.click();checkTwentyKm(near,1000);
-checkGpsEdge(near,1000);
+checkGpsCenter(near,1000);
 near.setSize({x:600,y:600});await near.ids['map-back'].handlers.click();checkTwentyKm(near);
-console.log('PASS: both Leaflet maps use a 20 km square on initial render, search, restored route, result focus and fullscreen resize; numbered pins match navigation GPS coordinates; route opening does not request GPS; denied GPS creates no guessed pin; device position has a distinct accurate marker and is never persisted.');
+checkGpsCenter(near);
+console.log('PASS: both Leaflet maps use a 20 km square on initial render, search, restored route, result focus and fullscreen resize; numbered pins match navigation GPS coordinates; nearby centers GPS while the southbound route retains top-edge positioning; GPS-mode return link waits for explicit search; denied GPS creates no guessed pin; device position has a distinct accurate marker and is never persisted.');
