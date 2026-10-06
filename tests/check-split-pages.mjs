@@ -65,11 +65,11 @@ async function checkPage(near,userAgent='Android'){
   assert(ids.results.children[0].children[1].children.some(n=>n.textContent.includes('CCS (150 kW)')));
   ids.types.value='all';ids.types.handlers.change();await ids.locate.handlers.click();assert.equal(ids.count.textContent,'3');assert.equal(writes,0);
  }else{
-  assert.equal(writes,1);assert.equal(ids.count.textContent,'0');assert.equal(ids['category-counts'].textContent,'Hoteller: 0');
+  assert.equal(writes,1);assert.equal(ids.count.textContent,'0');assert.equal(ids['category-counts'].children[0].textContent,'Hoteller: 0');
   ids.types.value='both';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});
   assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-stasjon');assert(ids.status.textContent.includes('300 m'));assert.equal(gps,0);
   ids.types.value='charging';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-lader');assert.equal(ids['charging-legend'].hidden,false);
-  ids.types.value='all';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'2');assert.deepEqual(ids['category-counts'].children.map(node=>node.textContent),['Hoteller: 0','Bensin: 1','Elbil-lading: 1']);assert.equal(gps,0);
+  ids.types.value='all';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'2');assert.deepEqual(ids['category-counts'].children.map(node=>node.textContent),['Hoteller: 0','Bensin: 1','Elbil-lading: 1','Vis alle','↑ Til toppen']);assert.equal(gps,0);
  }
  for(const values of [['hotel','charging'],['fuel','charging'],['culture'],['hotel','fuel','charging','culture'],[]]){
   const inputs=choices.filter(i=>i.name==='poi-type');inputs.forEach(i=>i.checked=values.includes(i.value));documentHandlers.change({target:inputs[0]});

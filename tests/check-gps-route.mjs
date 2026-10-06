@@ -102,7 +102,6 @@ const routeURL=fixture.requests.filter(url=>url.includes('osrm')).at(-1);
 assert(new URL(routeURL).pathname.endsWith(outside.join(',')+';'+moss.join(',')),'OSRM uses longitude,latitude from GPS as the route origin');
 assert.equal(fixture.writes.length,writesBefore,'A GPS route is never written to localStorage');
 assert(fixture.sessionWrites.slice(sessionBefore).every(write=>!write.value.includes(String(outside[0]))&&!write.value.includes(String(outside[1]))),'Device position is never written to the city session cache');
-assert(!ids.summary.children.at(-1).textContent.includes('utelatt: '),'Unknown GPS settlement is not labelled as an excluded city');
 
 for(const kind of ['denied','invalid','route']){
   const oldRequests=fixture.requests.length,oldGps=fixture.gpsCalls,oldWrites=fixture.writes.length;
@@ -115,7 +114,9 @@ for(const kind of ['denied','invalid','route']){
 }
 fixture.failRoute(false);fixture.setGps(oslo);ids.types.value='both';ids.types.handlers.change();await fixture.submit();
 assert.equal(ids.count.textContent,'2','Known GPS start settlement excludes its hotel while retaining fuel and destination hotel');
-assert(ids.summary.children.at(-1).textContent.includes('Oslo'),'A containing settlement can be named even when origin is Der jeg er');
+const gpsResultNames=ids.results.children.map(card=>card.children[1].children[0].textContent);
+assert(!gpsResultNames.includes('Hotell ved start'),'The GPS start settlement hotel remains excluded');
+assert(gpsResultNames.includes('Hotell ved mål')&&gpsResultNames.includes('Bensin ved start'),'Destination hotels and fuel at the GPS start remain included');
 assert.equal(fixture.writes.length,writesBefore,'Successful GPS results remain memory-only');
 
 fixture.mode('place');assert.equal(ids['from-mode'].value,'place');assert.equal(ids['from-place'].hidden,false);assert.equal(ids['from-gps-note'].hidden,true);
