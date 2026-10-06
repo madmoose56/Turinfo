@@ -25,6 +25,7 @@ assert.equal(matchPlaces('ØRE',places)[0].id,'oresund');
 assert.equal(matchPlaces('saet',places)[0].id,'saetre');
 assert.equal(matchPlaces('Malv',places)[0].id,'vikhammer','The former SSB name still leads to the current settlement');
 assert.deepEqual(matchPlaces('bø',[{id:'bod',name:'Bodø'},{id:'bom',name:'Bø',region:'Midt-Telemark'},{id:'bog',name:'Bogen'},{id:'bon',name:'Bø',region:'Bø'}]).slice(0,2).map(p=>p.id),['bon','bom'],'Exact Norwegian place names precede other names with the same normalized prefix');
+assert.deepEqual(matchPlaces('mo',[{id:'farm',name:'Mo',priority:1},{id:'town',name:'Moss',priority:0}]).map(p=>p.id),['town','farm'],'Cities and towns precede other feature types even when another feature matches exactly');
 const moMatches=matchPlaces('mo',places);
 assert(moMatches.indexOf(places.find(p=>p.id==='moss'))<moMatches.indexOf(places.find(p=>p.id==='saetre-mo')),'A place-name prefix ranks ahead of a later word prefix');
 assert(moMatches.indexOf(places.find(p=>p.id==='saetre-mo'))<moMatches.indexOf(places.find(p=>p.id==='demoss')),'A word prefix ranks ahead of a substring');
@@ -33,7 +34,8 @@ const large=Array.from({length:300},(_,i)=>({id:String(i),name:'Asted '+i,region
 assert.equal(matchPlaces('a',large).length,300,'Suggestions must retain all matching settlements');
 
 class Element {
-  constructor(doc,tag='div'){this.ownerDocument=doc;this.tagName=tag;this.children=[];this.handlers=new Map();this.attributes={};this.dataset={};this.hidden=false;this.disabled=false;this.value='';this.id='';this._text='';}
+  constructor(doc,tag='div'){this.ownerDocument=doc;this.tagName=tag;this.children=[];this.handlers=new Map();this.attributes={};this.dataset={};this.hidden=false;this._disabled=false;this.value='';this.id='';this._text='';}
+  get disabled(){return this._disabled;}set disabled(value){this._disabled=value;this.onDisabledChange?.();}
   append(...nodes){for(const node of nodes){node.parent=this;this.children.push(node);}}
   replaceChildren(...nodes){for(const node of this.children)node.parent=null;this.children=[];this.append(...nodes);}
   setAttribute(name,value){this.attributes[name]=String(value);} removeAttribute(name){delete this.attributes[name];}
@@ -57,14 +59,15 @@ class Document extends Element {
   createElement(tag){return new Element(this,tag);}
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+const debounce=()=>new Promise(resolve=>setTimeout(resolve,270));
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,fail)=>{resolve=ok;reject=fail;});return {promise,resolve,reject};};
-function fixture(provider=async()=>places){
+function fixture(provider=async()=>places,searchProvider){
   const doc=new Document(),input=doc.createElement('input'),listbox=doc.createElement('div'),outside=doc.createElement('button');
   input.id='from';listbox.id='from-suggestions';doc.append(input,listbox,outside);
-  const selections=[];let edits=0,loads=0;
-  const control=attachPlaceSuggestions(input,{listbox,getPlaces(){loads++;return provider();},onSelect:place=>selections.push(place),onEdit:()=>edits++});
+  const selections=[],remoteRequests=[];let edits=0,loads=0;
+  const control=attachPlaceSuggestions(input,{listbox,getPlaces(){loads++;return provider();},searchPlaces:searchProvider?(query,options)=>{remoteRequests.push({query,...options});return searchProvider(query,options);}:undefined,onSelect:place=>selections.push(place),onEdit:()=>edits++});
   const type=value=>{input.value=value;input.fire('input');};
-  return {doc,input,listbox,outside,control,selections,type,get edits(){return edits;},get loads(){return loads;}};
+  return {doc,input,listbox,outside,control,selections,type,remoteRequests,get edits(){return edits;},get loads(){return loads;}};
 }
 
 const f=fixture();
@@ -126,4 +129,46 @@ pending[2].resolve(places);await tick();assert(race.listbox.hidden,'Submitting o
 race.type('mo');race.input.disabled=true;pending[3].resolve(places);await tick();assert(race.listbox.hidden,'A GPS-disabled origin cannot reopen after a late response');
 const failure=fixture(async()=>{throw new Error('Index unavailable');});failure.input.focus();failure.type('os');await tick();assert(failure.listbox.hidden,'Unavailable local data leaves free-form entry usable');
 
-console.log('PASS: local SSB place prefix/word/substring matching, Norwegian letters and aliases, all matching entries, municipality distinction, lazy setup, exact keyboard and touch selection, free-form submit, pointer scrolling, stale-request and disabled-field guards.');
+const emptyLive=fixture(async()=>places,async()=>[]);emptyLive.input.focus();await debounce();
+assert.equal(emptyLive.loads,0);assert.equal(emptyLive.remoteRequests.length,0,'Empty focus makes neither a local load nor a live search');
+const localMoss=places.find(place=>place.id==='moss'),liveReply=deferred();
+const live=fixture(async()=>[localMoss],()=>liveReply.promise);live.input.focus();live.type('mo');await tick();
+assert.equal(live.listbox.children.length,1,'Local towns are usable before the remote request begins');assert.equal(live.remoteRequests.length,0,'Typing starts the live debounce rather than an immediate request');
+live.input.fire('keydown',{key:'ArrowDown'});await debounce();assert.equal(live.remoteRequests.length,1);assert.equal(live.remoteRequests[0].query,'mo');
+const remoteMoss={...localMoss,coords:[10.66,59.43],priority:0,kindLabel:'Tettsted'},remoteTown={id:'rana',name:'Mo i Rana',region:'Rana',priority:0,kindLabel:'By'},remoteFarm={id:'farm',name:'Mo',region:'Moss',priority:1,type:'Gård'};
+liveReply.resolve([remoteFarm,remoteTown,remoteMoss]);await tick();
+assert.equal(live.listbox.children.length,3,'Remote data replaces a duplicate ID and adds other places');
+const activeOption=live.listbox.children.find(option=>option.id===live.input.getAttribute('aria-activedescendant'));
+assert.equal(activeOption.children[0].textContent,'Moss','A remote refresh preserves the active place when its index changes');
+assert.equal(live.listbox.children[0].children[0].textContent,'Mo i Rana');assert.equal(live.listbox.children.at(-1).children[0].textContent,'Mo','Cities and towns stay above other live feature types');
+assert.equal(activeOption.children[1].textContent,'Moss','Municipality stays on its own line');assert.equal(activeOption.children[2].textContent,'Tettsted','The optional feature type is shown below municipality');
+live.input.fire('keydown',{key:'Enter'});assert.equal(live.control.selection,remoteMoss,'The richer live entry wins when its ID replaces a local entry');assert.deepEqual(live.control.selection.coords,[10.66,59.43]);
+
+const calls=[];const typing=fixture(async()=>places,()=>{const reply=deferred();calls.push(reply);return reply.promise;});typing.input.focus();typing.type('o');await tick();typing.type('Ø');await debounce();
+assert.equal(typing.remoteRequests.length,1,'Fast typing makes only one live request');assert.equal(typing.remoteRequests[0].query,'Ø','The service receives the original Norwegian spelling');
+typing.type('mo');assert(typing.remoteRequests[0].signal.aborted,'New typing aborts an in-flight request');await debounce();assert.equal(typing.remoteRequests.length,2);
+calls[1].resolve([remoteTown]);await tick();const current=typing.listbox.children.map(option=>option.textContent);
+calls[0].resolve([{id:'old',name:'Øre',region:'Old result',priority:1}]);await tick();assert.deepEqual(typing.listbox.children.map(option=>option.textContent),current,'An old response is ignored even when its provider does not honor abort');
+typing.control.close();assert(typing.remoteRequests[1].signal.aborted);assert(typing.listbox.hidden);
+const cancelled=fixture(async()=>places,async()=>[]);cancelled.input.focus();cancelled.type('o');cancelled.control.close();await debounce();assert.equal(cancelled.remoteRequests.length,0,'Closing cancels the scheduled request');
+
+const touchReply=deferred(),touchLive=fixture(async()=>[localMoss],()=>touchReply.promise);touchLive.input.focus();touchLive.type('mo');await tick();await debounce();
+const tapped=touchLive.listbox.children[0];tapped.children[0].fire('pointerdown',{pointerType:'touch'});
+touchReply.resolve([remoteTown,remoteMoss]);await tick();assert.equal(touchLive.listbox.children[0],tapped,'Live results cannot replace a pressed touch option before the click');
+tapped.children[0].fire('pointerup',{pointerType:'touch'});tapped.children[0].fire('click');await tick();assert.equal(touchLive.control.selection,localMoss,'The touch selects the exact option originally pressed');assert(touchLive.listbox.hidden);
+const panReply=deferred(),panning=fixture(async()=>[localMoss],()=>panReply.promise);panning.input.focus();panning.type('mo');await tick();await debounce();
+panning.listbox.children[0].fire('pointerdown',{pointerType:'touch'});panReply.resolve([remoteTown]);await tick();
+panning.listbox.fire('pointercancel',{pointerType:'touch'});await tick();assert.equal(panning.listbox.children.length,2,'A deferred update appears after a scroll gesture finishes without selecting');
+
+const liveFailure=fixture(async()=>[localMoss],async()=>{throw new Error('Service unavailable');});liveFailure.input.focus();liveFailure.type('mo');await tick();await debounce();await tick();
+assert(!liveFailure.listbox.hidden);assert.equal(liveFailure.listbox.children.length,1,'A failed live service retains local suggestions');assert.equal(liveFailure.listbox.getAttribute('aria-busy'),'false');
+const remoteOnly=fixture(async()=>{throw new Error('Local index unavailable');},async()=>[remoteTown]);remoteOnly.input.focus();remoteOnly.type('mo');await debounce();await tick();assert.equal(remoteOnly.listbox.children[0].children[0].textContent,'Mo i Rana','Live suggestions still work if the local index cannot load');
+
+const priorObserver=globalThis.MutationObserver;
+globalThis.MutationObserver=class {constructor(callback){this.callback=callback;}observe(input){input.onDisabledChange=this.callback;}};
+const disabledReply=deferred(),disabledLive=fixture(async()=>[localMoss],()=>disabledReply.promise);disabledLive.input.focus();disabledLive.type('mo');await tick();await debounce();
+disabledLive.input.disabled=true;assert(disabledLive.remoteRequests[0].signal.aborted,'Disabling the origin immediately aborts its live request');assert(disabledLive.listbox.hidden);
+disabledReply.resolve([remoteTown]);await tick();assert(disabledLive.listbox.hidden,'Late results cannot reopen a disabled GPS-origin field');
+if(priorObserver===undefined)delete globalThis.MutationObserver;else globalThis.MutationObserver=priorObserver;
+
+console.log('PASS: local SSB matching and Norwegian aliases; exact keyboard/touch selection and free-form submit; live debounce/abort and original spelling; immediate local and failure fallback; priority and stable active identity; ID merge; pointer refresh safety; disabled-field and stale-response guards.');
