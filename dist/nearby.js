@@ -1,4 +1,4 @@
-import {haversine} from './geo.js?v=39';
+import {haversine} from './geo.js?v=40';
 
 export function nearbyQuery(coords,radius){
   const [lon,lat]=coords;
