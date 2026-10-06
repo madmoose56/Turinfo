@@ -1,9 +1,9 @@
-import {attachPlaceSuggestions} from './place-suggestions.js?v=37';
-import {settlementPoint} from './settlement-point.js?v=37';
-import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=37';
-import {getPosition} from './nearby.js?v=37';
-import {fixedMapView,routeAhead,headingTarget} from './map-view.js?v=37';
-import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=37';
+import {attachPlaceSuggestions} from './place-suggestions.js?v=38';
+import {settlementPoint} from './settlement-point.js?v=38';
+import {findStartSettlement,excludeStartHotels,inSettlement,normalizePlace} from './geo.js?v=38';
+import {getPosition} from './nearby.js?v=38';
+import {fixedMapView,routeAhead,headingTarget} from './map-view.js?v=38';
+import {selectedTypes,resultLabel,routeQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=38';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 const placeChoices={},placeSelections={};let userChangedForm=false;
@@ -109,7 +109,7 @@ function pin(label,city=false,kind='hotel'){const station=!city&&kind!=='hotel';
 function popup(h){const node=el('div');node.append(el('strong',h.name),el('p',km(h.distance)+(active?.mode==='nearby'?' fra deg i luftlinje':' fra ruten i luftlinje')),navigationLink(h));return node;}
 function focusHotel(index){if(!map)return;const marker=active.hotelMarkers[index];if(!marker)return;cameraAnchor=active.hotels[index].coords;cameraTarget=null;applyMapView();marker.openPopup();if(innerWidth<=800)$('map').scrollIntoView({behavior:'smooth',block:'start'});}
 function matchesCategory(h,type){return type==='activity'?h.kind==='activity':activityTypes.includes(type)?h.kind==='activity'&&activityCategories(h.tags).includes(type):(h.kind??'hotel')===type;}
-function categoryCountLink(name,count,href,type){const anchor=el('a',name+(count===undefined?'':': '),'category-count');if(count!==undefined)anchor.append(el('strong',String(count)));anchor.href=href;anchor.setAttribute('aria-controls','results');anchor.addEventListener('click',()=>filterResults(type));active.categoryLinks.push({node:anchor,type});return anchor;}
+function categoryCountLink(name,count,href,type){const anchor=el('a',name+(count===undefined?'':': '),'category-count');if(count!==undefined)anchor.append(el('strong',String(count)));anchor.href=href;anchor.setAttribute('aria-controls','results');anchor.addEventListener('click',()=>{filterResults(type);$('result-nav').hidden=false;updateHeaderSpace();});active.categoryLinks.push({node:anchor,type});return anchor;}
 function updateListFilterLinks(){for(const {node,type} of active.categoryLinks)node.setAttribute('aria-current',type===active.listCategory?'true':'false');}
 function filterResults(type){
   if(!active)return;active.listCategory=type;
@@ -122,7 +122,17 @@ function filterResults(type){
   }else if(active.resultEmpty)active.resultEmpty.hidden=true;
   updateListFilterLinks();
 }
-function updateHeaderSpace(){const height=Math.ceil($('site-header').getBoundingClientRect?.()?.height??0);document.documentElement?.style?.setProperty('--site-header-height',height+'px');}
+let lastHeaderHeight=-1;
+function updateHeaderSpace(){const nav=$('result-nav'),height=Math.ceil(($('site-header').getBoundingClientRect?.()?.height??0)+(nav.hidden?0:nav.getBoundingClientRect?.()?.height??0));if(height===lastHeaderHeight)return;lastHeaderHeight=height;document.documentElement?.style?.setProperty('--site-header-height',height+'px');}
+function updateScrollControls(){
+  const counts=$('category-counts'),reference=counts.hidden?$('submit')??$('locate'):counts;
+  const bottom=reference?.getBoundingClientRect?.()?.bottom,titleBottom=$('site-header').getBoundingClientRect?.()?.bottom;
+  const hideNav=!active||!Number.isFinite(bottom)||!Number.isFinite(titleBottom)||bottom>titleBottom;
+  if($('result-nav').hidden!==hideNav)$('result-nav').hidden=hideNav;
+  const y=window.scrollY??0,height=window.innerHeight??0;
+  $('back-to-top').hidden=height<=0||y<height;
+  updateHeaderSpace();
+}
 function updateSearchLegend(types=selectedTypes($('types').value)){
   const box=$('search-legend');box.hidden=!active||!types.length;box.replaceChildren();if(box.hidden)return;
   const names={hotel:'Hotell',fuel:'Bensin',charging:'Elbil-lading',family:'Familie',outdoor:'Friluft og sport',culture:'Kultur',food:'Mat og drikke',activity:'Aktiviteter'};
@@ -140,8 +150,8 @@ function renderCategoryCounts(data,cached=false){
     box.append(categoryCountLink(names[type],count,href,type));navCounts.append(categoryCountLink(names[type],count,href,type));
   }
   if(data.hotelSnapshotAt)box.append(el('span','Hotellopplysninger fra '+new Date(data.hotelSnapshotAt).toLocaleDateString('nb-NO'),'category-count-note'));
-  for(const row of [box,navCounts]){if(types.length>1)row.append(categoryCountLink('Vis alle',undefined,'#results-title',null));const topLink=el('a','↑ Til toppen','category-count back-to-top');topLink.href='#top';row.append(topLink);}
-  updateListFilterLinks();$('result-nav').hidden=false;updateHeaderSpace();
+  for(const row of [box,navCounts])if(types.length>1)row.append(categoryCountLink('Vis alle',undefined,'#results-title',null));
+  updateListFilterLinks();updateScrollControls();
 }
 function render(data,cached=false){
   const near=data.mode==='nearby',types=data.types??['hotel'],label=resultLabel(types);active={...data,hotelMarkers:[],resultCards:[],resultEmpty:null,categoryLinks:[],listCategory:null};$('results-title').textContent=label[0].toUpperCase()+label.slice(1)+(near?' nær deg':' langs ruten');
@@ -271,9 +281,11 @@ mapDialog.addEventListener('close',()=>{overview.append(mapArea);resizeMap();$('
 initMap();
 $('map-location').addEventListener('click',showMyPosition);$('map-reset').addEventListener('click',resetMapView);
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(resizeMap).observe($('map'));
-window.addEventListener('resize',updateHeaderSpace);
-if(typeof ResizeObserver!=='undefined')new ResizeObserver(updateHeaderSpace).observe($('site-header'));
-updateHeaderSpace();
+window.addEventListener('scroll',updateScrollControls,{passive:true});
+window.addEventListener('resize',updateScrollControls);
+window.addEventListener('hashchange',updateScrollControls);
+if(typeof ResizeObserver!=='undefined'){const observer=new ResizeObserver(updateScrollControls);for(const id of ['site-header','result-nav','category-counts'])observer.observe($(id));}
+updateScrollControls();
 async function bootstrap(){try{const places=await loadPlaces();if(busy||fromGPS()||userChangedForm)return;let restored=false;try{const stored=JSON.parse(localStorage.getItem('veihotell-last-v3')??localStorage.getItem('veihotell-last-v2')??localStorage.getItem('veihotell-last-v1'));if(!stored?.from?.gpsOrigin&&stored?.route?.geometry?.coordinates?.length&&Array.isArray(stored.hotels)){const data=stored.filterVersion===3?stored:withoutStartHotels(stored,places);restored=true;$('types').value=typeValue(data.types);updateSearchLabels();$('from').value=data.from.name;$('to').value=data.to.name;for(const id of ['from','to'])placeSelections[id]=places.find(p=>p.id===data[id].ssbId)??places.find(p=>exactPlace(data[id].name,p)&&inSettlement(data[id].coords,p))??null;$('radius').value=data.radius;syncChoices();render(data,true);localStorage.setItem('veihotell-last-v3',JSON.stringify(data));}}catch{}if(!restored)search();}catch{status('Stedsoversikten kunne ikke lastes. Koble til internett og prøv igjen.',true);}}refreshFromMode();if(!isNearby)bootstrap();else updateSearchLabels();
 
 
