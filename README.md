@@ -7,7 +7,7 @@ Installerbar PWA for turer i Norge. Finn hoteller, bensinstasjoner, elbillading 
 - Rutesøk fra et valgt norsk sted eller «Der jeg er» (GPS) til en norsk by eller et tettsted. Avstand fra valgt kjørerute: Ved vei (300 m), 1 km, 2 km eller 3 km.
 - Hoteller i startstedets sammenhengende tettstedsområde utelates. Andre kategorier tas med.
 - Aktiviteter: Familie, Friluft og sport, Kultur, Mat og drikke. Flere kategorier kan kombineres.
-- Nær meg viser maksimalt 10 treff totalt, nærmest først i luftlinje. Søket utvides automatisk fra 10 til 25 og 50 km ved behov.
+- «Nær meg» ligger til høyre for «Fra der jeg er» og åpner et eget GPS-søk med de samme kategorivalgene, treffiltrene og kartet. Avstanden måles i sirkel fra GPS-posisjonen. Nær meg viser maksimalt 10 treff totalt, nærmest først i luftlinje. Søket utvides automatisk fra 10 til 25 og 50 km ved behov. GPS er sentrert i kartutsnittet på 20 × 20 km; sirkelen viser søkeradius.
 - Naviger hit åpner Apple Maps på iPhone/iPad eller Google Maps på andre enheter. Kartappen bruker aktuell posisjon. Start/Kjør må trykkes ved behov i kartappen.
 - PWA med frakoblet appskall og siste lagrede rutesøk. Nye søk og bakgrunnskart krever nett.
 
