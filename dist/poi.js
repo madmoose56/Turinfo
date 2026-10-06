@@ -1,4 +1,4 @@
-import {haversine,routePosition} from './geo.js?v=33';
+import {haversine,routePosition} from './geo.js?v=34';
 
 export function selectedTypes(value){if(value==='all')return ['hotel','fuel','charging'];if(value==='both')return ['hotel','fuel'];return [...new Set(String(value??'hotel').split(',').filter(t=>['hotel','fuel','charging','activity','family','outdoor','culture','food'].includes(t)))];}
 export function typeValue(types=['hotel']){return types.join(',');}
