@@ -29,7 +29,7 @@ async function harness({stored=null}={}){
   const choices=[...html.matchAll(/<input[^>]*name="([^"]+)"[^>]*value="([^"]+)"[^>]*>/g)].map(m=>Object.assign(new Node(),{name:m[1],value:m[2],checked:m[0].includes('checked')}));
   assert(ids['from-mode']&&ids['from-place']&&ids['from-gps-note'],'Both origin choices have dedicated form state');
   assert.deepEqual(choices.filter(n=>n.name==='from-mode-choice').map(n=>n.value),['place','gps']);
-  assert(html.includes('Der jeg er'));
+  assert(html.includes('Fra der jeg er'));
   const documentHandlers={},writes=[],sessionWrites=[],requests=[],area=new Node(),overview=new Node(),caption=new Node();caption.firstChild=new Node();
   let gpsCalls=0,gpsResult=point(outside),gpsError=null,holdGps=false,pendingGps,osrmFailure=false,lastRouteOrigin;
   const context=vm.createContext({console,URL,URLSearchParams,AbortController,setTimeout,clearTimeout,Date,Intl,Promise,
