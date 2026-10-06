@@ -44,7 +44,7 @@ class Node {
 function savedRoute(from={name:'Oslo',coords:oslo,ssbId:'oslo'},to={name:'Moss',coords:moss,ssbId:'moss'}){
   return {from,to,types:['fuel'],radius:1,filterVersion:3,savedAt:Date.now(),hotels:[],route:{distance:60000,duration:3600,geometry:{coordinates:[from.coords,to.coords]}}};
 }
-async function harness({photon='both',stored=null}={}){
+async function harness({photon='both',stored=null,holdPlaces=false}={}){
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),doc=new Node();doc.ownerDocument=doc;doc.activeElement=null;
   const ids=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],Object.assign(new Node(doc),{id:m[1]})]));
   for(const match of html.matchAll(/<input\b[^>]*id="([^"]+)"[^>]*>/g)){
@@ -58,7 +58,8 @@ async function harness({photon='both',stored=null}={}){
   doc.getElementById=id=>ids[id]??null;doc.createElement=()=>new Node(doc);
   doc.querySelector=selector=>selector==='.map-area'?area:selector==='.overview'?overview:selector==='.map-caption'?caption:selector.startsWith('input[name=')?choices.find(node=>selector.includes('"'+node.name+'"')&&selector.includes('"'+node.value+'"')):new Node(doc);
   doc.querySelectorAll=selector=>selector.startsWith('input[name=')?choices.filter(node=>selector.includes('"'+node.name+'"')):Object.values(ids).concat(choices);
-  const writes=[],sessionWrites=[],requests=[],routes=[],cache=new Map();let gpsCalls=0;
+  const writes=[],sessionWrites=[],requests=[],routes=[],cache=new Map();let gpsCalls=0,releasePlaces;
+  const placesReady=holdPlaces?new Promise(resolve=>{releasePlaces=resolve;}):null;
   const context=vm.createContext({console,URL,URLSearchParams,AbortController,setTimeout,clearTimeout,Date,Intl,Promise,
     document:doc,window:{addEventListener(){}},innerWidth:1200,matchMedia:()=>({matches:false,addEventListener(){}}),
     navigator:{userAgent:'iPhone',onLine:true,geolocation:{getCurrentPosition(ok){gpsCalls++;ok({coords:{longitude:gps[0],latitude:gps[1],accuracy:9,heading:180}});}}},
@@ -66,7 +67,7 @@ async function harness({photon='both',stored=null}={}){
     sessionStorage:{getItem:key=>cache.get(key)??null,setItem:(key,value)=>{cache.set(key,value);sessionWrites.push({key,value});}},
     fetch:async(url)=>{
       requests.push(String(url));let data;
-      if(url==='./places.json')data={places};
+      if(url==='./places.json'){if(placesReady)await placesReady;data={places};}
       else if(String(url).includes('photon')){
         const query=new URL(url).searchParams.get('q');
         if(query==='Oslo')data={features:[feature('Oslo',oslo)]};
@@ -86,10 +87,12 @@ async function harness({photon='both',stored=null}={}){
   const modules=new Map();
   async function load(filename){const full=path.resolve(filename);if(modules.has(full))return modules.get(full);const module=new vm.SourceTextModule(fs.readFileSync(full,'utf8'),{context,identifier:full});modules.set(full,module);await module.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return module;}
   await (await load(path.join(root,'app.js'))).evaluate();
-  for(let i=0;i<200&&!writes.length;i++)await tick();
-  assert.equal(writes.length,1,'Bootstrap finishes a route or restores the saved route');
-  // Fuel-only queries isolate place routing from hotel start-settlement filtering.
-  ids.types.value='fuel';ids.types.fire('change');
+  if(!holdPlaces){
+    for(let i=0;i<200&&!writes.length;i++)await tick();
+    assert.equal(writes.length,1,'Bootstrap finishes a route or restores the saved route');
+    // Fuel-only queries isolate place routing from hotel start-settlement filtering.
+    ids.types.value='fuel';ids.types.fire('change');
+  }
   async function select(id,placeId){
     const place=places.find(item=>item.id===placeId),input=ids[id];input.focus();input.value=place.name;input.fire('input');await tick();
     const options=ids[id+'-suggestions'].children,option=options.find(node=>node.children[0].textContent===place.name&&node.children[1]?.textContent===place.region);
@@ -97,7 +100,7 @@ async function harness({photon='both',stored=null}={}){
     assert.equal(input.value,place.name,'Selecting fills the full place name');
   }
   const submit=()=>ids.search.fire('submit',{},false).results[0];
-  return {ids,writes,sessionWrites,requests,routes,select,submit,get gpsCalls(){return gpsCalls;},
+  return {ids,writes,sessionWrites,requests,routes,select,submit,releasePlaces,get gpsCalls(){return gpsCalls;},
     async chooseAmbiguous(index){for(let i=0;i<100&&!ids.choose.open;i++)await tick();assert(ids.choose.open,'Editing a same-named settlement clears its previous exact selection');ids.choose.returnValue=String(index);ids.choose.close();},
     mode(value){const choice=choices.find(node=>node.name==='from-mode-choice'&&node.value===value);choice.checked=true;choice.fire('change');}};
 }
@@ -142,4 +145,14 @@ point(sameNames.routes.at(-1)[1],moss,'The selected city destination remains usa
 assert.equal(sameNames.writes.length,privateWrites,'The GPS route is not persisted');
 assert(sameNames.sessionWrites.every(write=>!write.value.includes(String(gps[0]))&&!write.value.includes(String(gps[1]))),'The suggestion integration does not leak device coordinates into city caches');
 
-console.log('PASS: exact same-name SSB place selection routes to distinct coordinates; swap preserves place identity; typing clears identity; identical coordinates are rejected; SSB fallback handles unavailable/wrong geocoding; saved IDs restore correctly; GPS still routes privately.');
+const startup=await harness({holdPlaces:true,stored:savedRoute({name:'Bø',coords:boSouth,ssbId:'bo-south'},{name:'Bø',coords:boNorth,ssbId:'bo-north'})});
+startup.ids.from.focus();startup.ids.from.value='Os';startup.ids.from.fire('input');
+startup.releasePlaces();await tick();await tick();
+assert.equal(startup.ids.from.value,'Os','A delayed place index must not overwrite the first letters typed during startup');
+assert.equal(startup.ids.to.value,'Moss','Typing during startup prevents an older saved route from replacing the form');
+assert.equal(startup.routes.length,0,'Finishing the place index after a user edit does not start an automatic route request');
+assert.equal(startup.writes.length,0,'The skipped bootstrap does not rewrite a saved route');
+await startup.select('from','oslo');await startup.submit();assert.equal(startup.routes.length,1,'An explicit search still works after the deferred index finishes');
+point(startup.routes[0][0],oslo,'The explicit search uses the place the user selected after startup');point(startup.routes[0][1],moss,'The original destination remains usable after startup');
+
+console.log('PASS: exact same-name SSB place selection routes to distinct coordinates; swap preserves place identity; typing clears identity; identical coordinates are rejected; SSB fallback handles unavailable/wrong geocoding; saved IDs restore correctly; GPS still routes privately; deferred startup preserves typing and allows an explicit search.');
