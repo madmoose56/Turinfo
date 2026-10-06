@@ -32,3 +32,5 @@ OpenStreetMap: https://www.openstreetmap.org/copyright
 SSB-kilden ligger i dist/places.json (sourceUrl, year). Tettstedsgrenser er forenklet og håndterer ikke innvendige hull separat.
 
 Nettstedet har tidligere hett Veihotell og Info på veien. Interne lagringsnøkler og eksisterende nettadresse er beholdt for kontinuitet. Denne GitHub-utgaven inneholder nettstedet/PWA-en; den tidligere SwiftUI-prototypen er et separat prosjekt.
+
+Begge rutefeltene viser stedsforslag fra første bokstav. Alle 1 000 SSB-tettsteder i 2026-listen er med, med kommune for å skille like navn. Gjeldende navn og kommuner hentes fra [SSBs tettsted–kommune-korrespondanse](https://data.ssb.no/api/klass/v1/correspondencetables/2945?language=nb); Malvik er også søkealias for Vikhammer. Valgt tettsteds-ID følger søket. Ved manglende geokoding brukes et punkt innen tettstedsgrensen som ruteutgangspunkt.
