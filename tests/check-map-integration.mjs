@@ -16,6 +16,7 @@ class Node {
   replaceChildren(...items){this.children=items;}
   addEventListener(type,fn){this.handlers[type]=fn;}
   setAttribute(name,value){this[name]=value;}
+  removeAttribute(name){delete this[name];}
   insertBefore(){} focus(){} scrollIntoView(){}
   showModal(){this.open=true;}
   close(){this.open=false;this.handlers.close?.();}

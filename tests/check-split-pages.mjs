@@ -8,7 +8,7 @@ class Node {
  get textContent(){return this._text+this.children.map(child=>child.textContent).join('')}
  set textContent(value){this._text=String(value);this.children=[]}
  append(...items){this.children.push(...items)} replaceChildren(...items){this._text='';this.children=items}
- addEventListener(type,fn){this.handlers[type]=fn} setAttribute(){} insertBefore(){}
+ addEventListener(type,fn){this.handlers[type]=fn} setAttribute(){} removeAttribute(){} insertBefore(){}
 }
 async function checkPage(near,userAgent='Android'){
  const html=fs.readFileSync(root+(near?'nearby.html':'index.html'),'utf8');
