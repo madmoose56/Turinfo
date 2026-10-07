@@ -1,11 +1,11 @@
-import {attachPlaceSuggestions} from './place-suggestions.js?v=50';
-import {placeChain,chainCounts} from './hotel-chains.js?v=50';
-import {createKartverketSearch} from './kartverket-places.js?v=50';
-import {settlementPoint} from './settlement-point.js?v=50';
-import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=50';
-import {getPosition} from './nearby.js?v=50';
-import {fixedMapView,routeAhead} from './map-view.js?v=50';
-import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=50';
+import {attachPlaceSuggestions} from './place-suggestions.js?v=51';
+import {placeChain,chainCounts} from './hotel-chains.js?v=51';
+import {createKartverketSearch} from './kartverket-places.js?v=51';
+import {settlementPoint} from './settlement-point.js?v=51';
+import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=51';
+import {getPosition} from './nearby.js?v=51';
+import {fixedMapView,routeAhead} from './map-view.js?v=51';
+import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=51';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 const placeChoices={},placeSelections={};let userChangedForm=false;
@@ -150,7 +150,7 @@ function filterResults(type,chain=null){
   }else if(active.resultEmpty)active.resultEmpty.hidden=true;
   updateListFilterLinks();updateChainControls();updateScrollControls();
 }
-const chainRows=[{type:'hotel',label:'Hoteller',ids:['hotel-chain-counts','result-nav-hotel-chains']},{type:'fuel',label:'Bensin',ids:['fuel-chain-counts','result-nav-fuel-chains']},{type:'charging',label:'Elbil-lading',ids:['charging-chain-counts','result-nav-charging-chains']},{type:'food',label:'Mat og drikke',ids:['food-chain-counts','result-nav-food-chains']}];
+const chainRows=[{type:'hotel',label:'Hoteller',ids:['hotel-chain-counts','result-nav-hotel-chains']},{type:'fuel',label:'Bensin',ids:['fuel-chain-counts','result-nav-fuel-chains']},{type:'charging',label:'Elbil-lading',ids:['charging-chain-counts','result-nav-charging-chains']},{type:'food',label:'Mat og drikke',ids:['food-chain-counts']}];
 function updateChainControls(){
   if(!active)return;
   for(const {type,ids} of chainRows){
