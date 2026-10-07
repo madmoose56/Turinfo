@@ -20,7 +20,7 @@ async function checkPage(near,userAgent='Android'){
  const html=fs.readFileSync(root+(near?'nearby.html':'index.html'),'utf8');
  const ids=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],new Node()]));
  const choices=[...html.matchAll(/<input[^>]*name="([^"]+)"[^>]*value="([^"]+)"[^>]*>/g)].map(m=>Object.assign(new Node(),{name:m[1],value:m[2],checked:m[0].includes('checked')}));
- const documentHandlers={};
+ const documentHandlers={},idleTasks=[];let wideFuel=false;
  assert.equal(Boolean(ids.search),!near);assert.equal(Boolean(ids.locate),near);
  if(near){
   assert(html.includes('<span>Velg rute</span>'),'Nearby returns to the route mode');
@@ -44,7 +44,7 @@ async function checkPage(near,userAgent='Android'){
  const area=new Node(),caption=new Node();caption.firstChild=new Node();
  const context=vm.createContext({console,URL,URLSearchParams,AbortController,setTimeout,clearTimeout,Date,Intl,Promise,
  document:{addEventListener:(type,fn)=>documentHandlers[type]=fn,body:{dataset:{page:near?'nearby':'route'}},getElementById:id=>ids[id]??null,createElement:()=>new Node(),querySelector:s=>s==='.map-area'?area:s==='.map-caption'?caption:s.startsWith('input[name=')?choices.find(i=>s.includes('"'+i.name+'"')&&s.includes('"'+i.value+'"')):new Node(),querySelectorAll:s=>s.startsWith('input[name=')?choices.filter(i=>s.includes('"'+i.name+'"')):Object.values(ids)},
- window:{addEventListener(){}},navigator:{userAgent,onLine:true,geolocation:{getCurrentPosition(ok,fail){gps++;deny?fail({code:1}):ok({coords:{longitude:coords[0][0],latitude:coords[0][1],accuracy:10}})}}},
+ window:{addEventListener(){},requestIdleCallback:fn=>idleTasks.push(fn)},navigator:{userAgent,onLine:true,geolocation:{getCurrentPosition(ok,fail){gps++;deny?fail({code:1}):ok({coords:{longitude:coords[0][0],latitude:coords[0][1],accuracy:10}})}}},
  localStorage:{getItem(){reads++;return null},setItem(){writes++}},sessionStorage:{getItem(){sessionReads++;return null},setItem(){sessionWrites++}},matchMedia:()=>({matches:false,addEventListener(){}}),innerWidth:1200,
  fetch:async(url,options)=>{
   requests++;requestedURLs.push(String(url));let data;
@@ -65,6 +65,7 @@ async function checkPage(near,userAgent='Android'){
    ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
    ...(query.includes('"charging_station"')?[{type:'node',id:3,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'charging_station',name:'Start-lader',operator:'Recharge','socket:type2_combo':'2','socket:type2_combo:output':'150 kW'}}]:[]),
    ...(query.includes('museum')?[{type:'node',id:4,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{tourism:'museum',name:'Start-museum',opening_hours:'24/7',website:'example.org'}}]:[])]};
+   if(wideFuel&&query.includes('"fuel"'))data.elements.push({type:'node',id:888,lon:(coords[0][0]+coords[1][0])/2+.025,lat:(coords[0][1]+coords[1][1])/2,tags:{amenity:'fuel',name:'Fuel 1.4 km off route'}});
    if(many==='mixed')data.elements=[15,2,12,4,9,1,14,3,8,13,5,10,7,11,6].map(rank=>{
     const point=radialPoint(coords[0],rank*400,(rank%4)*90),tagSets=[{tourism:'hotel'},{amenity:'fuel'},{amenity:'charging_station'},{tourism:'museum'}];
     return {type:'node',id:200+rank,lon:point[0],lat:point[1],tags:{...tagSets[rank%4],name:'Radial '+rank,...(rank%4===1?{brand:rank===5?'Circle K':'Uno-X'}:rank%4===2?{operator:rank===10?'Tesla':'Kople AS'}:{}),...(rank%4===0?{brand:rank%8===0?'Thon Hotels':'Best Western Plus'}:{})}};
@@ -100,8 +101,16 @@ async function checkPage(near,userAgent='Android'){
   documentHandlers.change({target:input});await input.handlers.click();
   assert.equal(ids.types.value,type,'Category presses select exactly one category');
   assert.equal(choices.filter(i=>i.name==='poi-type'&&i.checked).length,1);
-  assert(requests>before,'Every category press starts a search, including repeat presses');
+  assert(near?requests>before:requests>=before,'Category searches may reuse the same route data');
   assert.equal(ids.count.textContent,'1');
+ }
+ if(!near){
+  const before=requests,mode=choices.find(i=>i.name==='from-mode-choice'&&i.value==='gps');
+  documentHandlers.change({target:mode});assert.equal(requests,before);assert.equal(gps,0,'Origin selector requests no GPS');
+  mode.value='place';documentHandlers.change({target:mode});
+  const radius=choices.find(i=>i.name==='radius-choice'&&i.value==='3');
+  documentHandlers.change({target:radius});assert.equal(requests,before,'Radius filters the current list with no network');assert.equal(gps,0);
+  radius.value='0.3';documentHandlers.change({target:radius});assert.equal(requests,before);
  }
  if(near){
   many=true;ids.types.value='hotel';ids['activity-choices'].hidden=true;ids.types.handlers.change();const before=requests;await ids.locate.handlers.click();
@@ -198,6 +207,21 @@ async function checkPage(near,userAgent='Android'){
   assert(ids['category-counts'].textContent.includes('Elbil-lading: utilgjengelig'));
   assert(ids.status.textContent.includes('Søket er delvis'));
   assert.equal(writes,beforeWrites,'Incomplete live category responses must not be merged into the hotel reserve or saved');
+ }
+ if(!near){
+  registryFailure='';wideFuel=true;
+  const mode=choices.find(i=>i.name==='from-mode-choice'&&i.value==='place');documentHandlers.change({target:mode});
+  const radius=choices.find(i=>i.name==='radius-choice'&&i.value==='0.3');documentHandlers.change({target:radius});
+  await choices.find(i=>i.name==='poi-type'&&i.value==='fuel').handlers.click();
+  assert.equal(ids.count.textContent,'1','Narrow view omits a result inside the fetched 3 km corridor');
+  const beforeRadius=requests;radius.value='3';documentHandlers.change({target:radius});
+  assert.equal(ids.count.textContent,'2');assert.equal(requests,beforeRadius,'Widening uses the complete 3 km dataset');
+  const beforeBackground=requests,beforeWrites=writes,title=ids['results-title'].textContent;
+  await idleTasks.at(-1)();assert(requests>beforeBackground,'Other categories are fetched after selected results');
+  assert.equal(ids['results-title'].textContent,title,'Background results never replace the selected category');assert.equal(writes,beforeWrites,'Background cache stays in memory');assert.equal(gps,0);
+  const beforeSwitch=requests;await choices.find(i=>i.name==='poi-type'&&i.value==='charging').handlers.click();
+  assert.equal(requests,beforeSwitch,'Loaded categories display immediately without routing or registry calls');
+  assert(ids['results-title'].textContent.includes('Ladestasjoner'));assert.equal(choices.filter(i=>i.name==='poi-type'&&i.checked).length,1);
  }
  if(near){assert.equal(reads,0);assert.equal(writes,0);assert.equal(sessionReads,0);assert.equal(sessionWrites,0);assert.equal(ids.locate.textContent,'Søk nær meg');assert(requestedURLs.every(url=>url.includes('overpass')||url==='./hotels.json'),'Nearby never loads route places, geocodes a destination or calculates an OSRM route');}
 }
