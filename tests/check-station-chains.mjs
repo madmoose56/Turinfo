@@ -24,5 +24,5 @@ assert.equal(placeChain(food('Burger King sentrum'),'food').name,'Burger King');
 assert.equal(placeChain(food('Burger King gammel',{brand:"McDonald's"}),'food').name,'McDonald’s');
 assert.equal(placeChain(food('Kafé Sol',{amenity:'cafe'}),'food').name,'Kafé Sol');
 assert.equal(placeChain(station('hotel','McDonalds'),'food'),null);
-assert.deepEqual(chainCounts([food("McDonald's A"),food('McDonalds B'),food('Burger King'),food('Kafé Sol',{amenity:'cafe'})],'food').map(g=>[g.name,g.count]),[['Alle',4],['Burger King',1],['Kafé Sol',1],['McDonald’s',2]]);
+assert.deepEqual(chainCounts([food("McDonald's A"),food('McDonalds B'),food('Burger King'),food('Kafé Sol',{amenity:'cafe'})],'food').map(g=>[g.name,g.count]),[['Alle',4],['McDonald’s',2],['Burger King',1],['Kafé Sol',1]]);
 console.log('PASS: food filters group real chain matches and individual restaurants, preserve registered brands and exclude other themes.');
