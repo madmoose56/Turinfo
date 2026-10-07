@@ -1,11 +1,11 @@
-import {attachPlaceSuggestions} from './place-suggestions.js?v=43';
-import {placeChain,chainCounts} from './hotel-chains.js?v=43';
-import {createKartverketSearch} from './kartverket-places.js?v=43';
-import {settlementPoint} from './settlement-point.js?v=43';
-import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=43';
-import {getPosition} from './nearby.js?v=43';
-import {fixedMapView,routeAhead} from './map-view.js?v=43';
-import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=43';
+import {attachPlaceSuggestions} from './place-suggestions.js?v=44';
+import {placeChain,chainCounts} from './hotel-chains.js?v=44';
+import {createKartverketSearch} from './kartverket-places.js?v=44';
+import {settlementPoint} from './settlement-point.js?v=44';
+import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=44';
+import {getPosition} from './nearby.js?v=44';
+import {fixedMapView,routeAhead} from './map-view.js?v=44';
+import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=44';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 const placeChoices={},placeSelections={};let userChangedForm=false;
@@ -42,7 +42,7 @@ function updateSearchLabels(){const label=resultLabel(selectedTypes($('types').v
 $('types').addEventListener('change',()=>{$('category-counts').hidden=true;updateSearchLabels();});
 function syncChoices(){
   const types=selectedTypes($('types').value);
-  document.querySelectorAll('input[name="poi-type"]').forEach(input=>{input.checked=types.includes(input.value)||(types.includes('activity')&&activityTypes.includes(input.value));});
+  document.querySelectorAll('input[name="poi-type"]').forEach(input=>{input.checked=input.value===(types[0]==='activity'?'family':types[0]);});
   updateSearchLegend(types);
   if(isNearby)return;
   const id='radius';
@@ -55,11 +55,16 @@ document.addEventListener('change',event=>{
   if(!busy)$('category-counts').hidden=true;
   const input=event.target;
   if(input.name==='poi-type'){
-    $('types').value=[...document.querySelectorAll('input[name="poi-type"]')].filter(item=>item.checked).map(item=>item.value).join(',');updateSearchLabels();
+    $('types').value=input.value;updateSearchLabels();
   }else if(input.name==='radius-choice'){$('radius').value=input.value;syncChoices();}
   else if(input.name==='from-mode-choice'){$('from-mode').value=input.value;refreshFromMode();}
 });
 $('from-mode')?.addEventListener('change',refreshFromMode);
+// A category is the search action, including pressing the selected category again.
+document.querySelectorAll('input[name="poi-type"]').forEach(input=>input.addEventListener('click',()=>{
+  if(busy)return;userChangedForm=true;$('types').value=input.value;updateSearchLabels();
+  return isNearby?nearbySearch():search();
+}));
 function status(message,error=false){if(error&&$('category-counts')){$('category-counts').hidden=false;$('category-counts').textContent='Søket ble ikke fullført. Ingen nye antall treff å vise.';}$('status').textContent=message;$('status').classList.toggle('error',error);}
 function el(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;}
 function safeWebsite(raw){if(!raw)return null;try{const u=new URL(raw.match(/^https?:\/\//i)?raw:'https://'+raw);return ['https:','http:'].includes(u.protocol)?u.href:null;}catch{return null;}}

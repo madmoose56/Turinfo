@@ -1,4 +1,4 @@
-import {inRing,normalizePlace} from './geo.js?v=43';
+import {inRing,normalizePlace} from './geo.js?v=44';
 
 const endpoint='https://api.kartverket.no/stedsnavn/v1/sted';
 const fields='navn.stedsnummer,navn.stedsnavn,navn.kommuner,navn.navneobjekttype,navn.representasjonspunkt,navn.stedstatus,metadata';

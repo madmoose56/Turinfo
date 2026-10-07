@@ -48,3 +48,6 @@ body:has(#map-fullscreen[open]){overflow:hidden}.overview .leaflet-control-attri
 .search-mode-row,.journey .origin-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.search-mode-row{margin:0 0 18px}.search-mode-row .choice{display:block;text-decoration:none}.mode-button{background:none;border:0;padding:0;font:inherit;cursor:pointer}.search-mode-row .choice span{display:grid;place-items:center;min-height:56px;white-space:normal}.search-mode-row .choice[aria-pressed="true"] span,.search-mode-row .choice[aria-current="page"] span{background:#0d6c4b;color:#fff;border-color:#0d6c4b;font-weight:700}#route-controls[hidden],#route-note[hidden]{display:none}.destination-note{color:#0d694b;font-weight:600}
 
 .chain-caption{flex-basis:100%;font-size:13px;font-weight:650;color:#47665b}.result-nav .chain-caption{text-align:center}
+
+/* Compact route selectors and immediate category search. */
+.search-mode-row{display:flex;justify-content:space-between}.search-mode-row>.choice{flex:0 0 calc((100% - 10px)/4)}.search-mode-row .choice span{font-size:16px;padding:10px 5px}.journey .origin-row .choice span{height:34px;min-height:34px;padding:3px 6px;font-size:16px;border-radius:12px;line-height:1.15}#submit,#locate{display:none}
