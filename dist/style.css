@@ -53,3 +53,6 @@ body:has(#map-fullscreen[open]){overflow:hidden}.overview .leaflet-control-attri
 .search-mode-row{display:flex;justify-content:space-between}.search-mode-row>.choice{flex:0 0 calc((100% - 10px)/4)}.search-mode-row .choice span{font-size:16px;padding:10px 5px}.journey .origin-row .choice span{height:34px;min-height:34px;padding:3px 6px;font-size:16px;border-radius:12px;line-height:1.15}#submit,#locate{display:none}
 
 .activities-theme{display:block;width:100%;border:0;background:none;padding:0;margin:0 0 22px;font:inherit}.activities-theme[aria-pressed="true"] span{background:#0d6c4b;color:white;border-color:#0d6c4b;font-weight:700}#activity-choices[hidden]{display:none}
+
+/* Four independent search themes occupy two equal rows. */
+.category-row:not(.activity-row) .choice:last-child{grid-column:auto}

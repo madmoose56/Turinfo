@@ -22,7 +22,16 @@ const stationChains={
  fuel:[['Circle K',/\bcircle\s*k\b/i],['Uno-X',/\buno[\s-]*x\b/i],['YX',/\byx\b/i],['Esso',/\besso\b/i],['Shell',/\bshell\b/i],['St1',/\bst\s*1\b/i],['Best',/\bbest\b/i],['Bunker Oil',/\bbunker\s*oil\b/i]],
  charging:[['Tesla',/\btesla\b/i],['Recharge',/\brecharge\b/i],['Mer',/\bmer(?:\s+(?:norway|norge|as))?\b/i],['Kople',/\bkople\b/i],['Circle K',/\bcircle\s*k\b/i],['Ionity',/\bionity\b/i],['Eviny',/\beviny\b/i],['Bilkraft',/\bbilkraft\b/i],['E.ON',/\be[.]?on\b/i],['Uno-X',/\buno[\s-]*x\b/i],['Fortum',/\bfortum\b/i],['Ladeklar',/\bladeklar\b/i]]
 };
+const foodChains=[['McDonald’s',/\bmc[\s-]*donald[’']?s?\b/i],['Burger King',/\bburger\s*king\b/i],['MAX',/\bmax(?:\s+(?:burger|burgers|hamburger|hamburgere))?\b/i],['Subway',/\bsubway\b/i],['Peppes Pizza',/\bpeppes(?:\s*pizza)?\b/i],['Domino’s',/\bdomino[’']?s?\b/i],['Pizzabakeren',/\bpizzabakeren\b/i],['Egon',/\begon\b/i],['Dolly Dimple’s',/\bdolly\s*dimple[’']?s?\b/i],['Espresso House',/\bespresso\s*house\b/i],['Big Bite',/\bbig\s*bite\b/i],['Jordbærpikene',/jordbærpikene/i]];
+const foodAmenities=new Set(['restaurant','cafe','fast_food','pub','bar','ice_cream']);
+export function foodChain(place){
+ if(!foodAmenities.has(place.tags?.amenity))return null;
+ const tags=place.tags??{},registered=tidy(tags.brand)||tidy(tags.network),name=registered||tidy(place.name)||tidy(tags.operator);
+ const known=foodChains.find(([,pattern])=>pattern.test(name));
+ return name?{id:key(known?.[0]??name),name:known?.[0]??name}:{id:'other',name:'Øvrige spisesteder'};
+}
 export function placeChain(place,type){
+ if(type==='food')return foodChain(place);
  if(type==='hotel')return hotelChain(place);
  if(place.kind!==type||!stationChains[type])return null;
  const tags=place.tags??{},fields=type==='charging'?['operator','network','brand']:['brand','network','operator'];
