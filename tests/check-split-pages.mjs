@@ -67,7 +67,7 @@ async function checkPage(near,userAgent='Android'){
    ...(query.includes('museum')?[{type:'node',id:4,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{tourism:'museum',name:'Start-museum',opening_hours:'24/7',website:'example.org'}}]:[])]};
    if(many==='mixed')data.elements=[15,2,12,4,9,1,14,3,8,13,5,10,7,11,6].map(rank=>{
     const point=radialPoint(coords[0],rank*400,(rank%4)*90),tagSets=[{tourism:'hotel'},{amenity:'fuel'},{amenity:'charging_station'},{tourism:'museum'}];
-    return {type:'node',id:200+rank,lon:point[0],lat:point[1],tags:{...tagSets[rank%4],name:'Radial '+rank,...(rank%4===0?{brand:rank%8===0?'Thon Hotels':'Best Western Plus'}:{})}};
+    return {type:'node',id:200+rank,lon:point[0],lat:point[1],tags:{...tagSets[rank%4],name:'Radial '+rank,...(rank%4===1?{brand:rank===5?'Circle K':'Uno-X'}:rank%4===2?{operator:rank===10?'Tesla':'Kople AS'}:{}),...(rank%4===0?{brand:rank%8===0?'Thon Hotels':'Best Western Plus'}:{})}};
    });
    else if(many)data.elements=Array.from({length:15},(_,i)=>({type:'node',id:100+i,lon:coords[0][0],lat:coords[0][1]+(15-i)*.002,tags:{tourism:'hotel',name:'Test '+(15-i)}}));
   }
@@ -115,15 +115,30 @@ async function checkPage(near,userAgent='Android'){
   assert.deepEqual(ids.results.children.map(card=>card.children[1].children[0].textContent),Array.from({length:10},(_,i)=>'Radial '+(i+1)),'Mixed results at 400 m increments in four directions are sorted by radial distance');
   const distances=ids.results.children.map(card=>card.children[1].children.find(node=>node.className==='distance').textContent);
   assert.deepEqual(distances,Array.from({length:10},(_,i)=>((i+1)*.4).toLocaleString('nb-NO',{maximumFractionDigits:1})+' km fra din GPS-posisjon i luftlinje'),'Nearby result distances refer to GPS, not progress along a route');
+  const buttons=row=>row.children.filter(node=>node.type==='button');
   const networkBeforeFilter=requests,chainRow=ids['hotel-chain-counts'],navChains=ids['result-nav-hotel-chains'];
-  assert.deepEqual(chainRow.children.map(button=>button.textContent),['Alle: 2','Best Western: 1','Thon: 1']);
+  assert.deepEqual(buttons(chainRow).map(button=>button.textContent),['Alle: 2','Best Western: 1','Thon: 1']);
   navChains.children.find(button=>button.textContent.startsWith('Thon:')).handlers.click();
   assert.equal(ids.count.textContent,'1');assert.equal(ids['results-title'].textContent,'Thon nær deg');
   assert.deepEqual(ids.results.children.filter(card=>!card.hidden).map(card=>card.children[1].children[0].textContent),['Radial 8']);
   assert.equal(chainRow.children.find(button=>button.textContent.startsWith('Thon:')).attributes['aria-pressed'],'true');
-  chainRow.children[0].handlers.click();assert.equal(ids.count.textContent,'2');
+  buttons(chainRow)[0].handlers.click();assert.equal(ids.count.textContent,'2');
   ids['category-counts'].children.find(button=>button.textContent.startsWith('Bensin:')).handlers.click();assert.equal(chainRow.hidden,true);assert.equal(navChains.hidden,true);
-  ids['category-counts'].children.find(button=>button.textContent==='Vis alle').handlers.click();assert.equal(ids.count.textContent,'10');assert.equal(chainRow.hidden,false);assert.equal(chainRow.children[0].attributes['aria-pressed'],'true');
+  const fuelRow=ids['fuel-chain-counts'],chargingRow=ids['charging-chain-counts'];
+  assert.equal(fuelRow.hidden,false);assert.equal(chargingRow.hidden,true);
+  assert.deepEqual(buttons(fuelRow).map(button=>button.textContent),['Alle: 3','Circle K: 1','Uno-X: 2']);
+  ids['result-nav-fuel-chains'].children.find(button=>button.textContent.startsWith('Uno-X:')).handlers.click();
+  assert.equal(ids.count.textContent,'2');assert.equal(ids['results-title'].textContent,'Uno-X nær deg');
+  assert.deepEqual(ids.results.children.filter(card=>!card.hidden).map(card=>card.children[1].children[0].textContent),['Radial 1','Radial 9']);
+  buttons(fuelRow)[0].handlers.click();assert.equal(ids.count.textContent,'3');
+  ids['category-counts'].children.find(button=>button.textContent.startsWith('Elbil-lading:')).handlers.click();
+  assert.equal(fuelRow.hidden,true);assert.equal(chargingRow.hidden,false);
+  assert.deepEqual(buttons(chargingRow).map(button=>button.textContent),['Alle: 3','Kople: 2','Tesla: 1']);
+  buttons(chargingRow).find(button=>button.textContent.startsWith('Kople:')).handlers.click();
+  assert.equal(ids.count.textContent,'2');assert.equal(ids['results-title'].textContent,'Kople nær deg');
+  assert.deepEqual(ids.results.children.filter(card=>!card.hidden).map(card=>card.children[1].children[0].textContent),['Radial 2','Radial 6']);
+  buttons(chargingRow)[0].handlers.click();assert.equal(ids.count.textContent,'3');
+  ids['category-counts'].children.find(button=>button.textContent==='Vis alle').handlers.click();assert.equal(ids.count.textContent,'10');assert.equal(chainRow.hidden,false);assert.equal(buttons(chainRow)[0].attributes['aria-pressed'],'true');
   assert.equal(requests,networkBeforeFilter,'Chain filtering never searches again or requests GPS');
   assert.equal(writes,0);assert.equal(sessionWrites,0);many=false;
  }
