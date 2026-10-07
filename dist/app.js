@@ -1,11 +1,11 @@
-import {attachPlaceSuggestions} from './place-suggestions.js?v=44';
-import {placeChain,chainCounts} from './hotel-chains.js?v=44';
-import {createKartverketSearch} from './kartverket-places.js?v=44';
-import {settlementPoint} from './settlement-point.js?v=44';
-import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=44';
-import {getPosition} from './nearby.js?v=44';
-import {fixedMapView,routeAhead} from './map-view.js?v=44';
-import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=44';
+import {attachPlaceSuggestions} from './place-suggestions.js?v=45';
+import {placeChain,chainCounts} from './hotel-chains.js?v=45';
+import {createKartverketSearch} from './kartverket-places.js?v=45';
+import {settlementPoint} from './settlement-point.js?v=45';
+import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=45';
+import {getPosition} from './nearby.js?v=45';
+import {fixedMapView,routeAhead} from './map-view.js?v=45';
+import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=45';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 const placeChoices={},placeSelections={};let userChangedForm=false;
@@ -40,8 +40,11 @@ function routeButtonText(){if(!busy)return 'Søk langs ruta';const names={hotel:
 function nearbyButtonText(){return busy?routeButtonText():'Søk nær meg';}
 function updateSearchLabels(){const label=resultLabel(selectedTypes($('types').value));if($('submit'))$('submit').textContent=routeButtonText();if($('locate'))$('locate').textContent=nearbyButtonText();if($('nearby-title'))$('nearby-title').textContent=label[0].toUpperCase()+label.slice(1)+' nær deg';syncChoices();}
 $('types').addEventListener('change',()=>{$('category-counts').hidden=true;updateSearchLabels();});
+function syncActivities(show){$('activity-choices').hidden=!show;$('activities-toggle').setAttribute('aria-expanded',String(show));$('activities-toggle').setAttribute('aria-pressed',String(show));}
+$('activities-toggle').addEventListener('click',()=>syncActivities($('activity-choices').hidden));
 function syncChoices(){
   const types=selectedTypes($('types').value);
+  syncActivities(types.some(type=>activityTypes.includes(type)||type==='activity'));
   document.querySelectorAll('input[name="poi-type"]').forEach(input=>{input.checked=input.value===(types[0]==='activity'?'family':types[0]);});
   updateSearchLegend(types);
   if(isNearby)return;
@@ -105,7 +108,7 @@ async function city(name,chosen){
 function initMap(){if(!window.L){$('map').append(el('p','Kartet kunne ikke lastes. Resultatene vises fortsatt i listen.'));return;}map=L.map('map',{zoomControl:false,zoomSnap:0}).setView([59.66,10.73],9);L.control.zoom({position:'topright'}).addTo(map);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);markers=L.layerGroup().addTo(map);applyMapView();}
 function applyMapView(){
   if(!map)return;const size=map.getSize(),pixels=Math.min(size.x,size.y);if(pixels<=36)return;
-  const view=fixedMapView(cameraAnchor,cameraTarget,pixels);
+  const view=fixedMapView(cameraAnchor,cameraTarget,pixels,isNearby?20000:10000);
   map.setView([view.center[1],view.center[0]],view.zoom,{animate:false});
 }
 function resetMapView(){
