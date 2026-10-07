@@ -94,15 +94,13 @@ async function checkPage(near,userAgent='Android'){
   ids.types.value='charging';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-lader');assert.equal(ids['charging-legend'].hidden,false);
   ids.types.value='all';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'2');assert.deepEqual(ids['category-counts'].children.map(node=>node.textContent),['Hoteller: 0','Bensin: 1','Elbil-lading: 1','Vis alle']);assert.equal(gps,0);
  }
- for(const values of [['hotel','charging'],['fuel','charging'],['culture'],['hotel','fuel','charging','culture'],[]]){
-  const gpsBefore=gps;
-  const inputs=choices.filter(i=>i.name==='poi-type');inputs.forEach(i=>i.checked=values.includes(i.value));documentHandlers.change({target:inputs[0]});
-  assert.equal(gps,gpsBefore,'Changing categories never requests GPS');
-  if(near)assert.equal(ids.locate.textContent,'Søk nær meg','The idle nearby action is stable when categories change');
-  assert.equal(ids.types.value,values.join(','));const before=requests;
-  if(near)await ids.locate.handlers.click();else await ids.search.handlers.submit({preventDefault(){}});
-  if(!values.length){assert.equal(requests,before);assert.equal(gps,gpsBefore);assert(ids.status.textContent.includes('Velg minst én'));}else{assert.equal(ids.count.textContent,String(values.length-(near?0:values.includes('hotel')?1:0)));assert.equal(gps,gpsBefore+(near?1:0),'Nearby gets location only after explicit search');}
-  if(near){assert.equal(ids.locate.disabled,false);assert.equal(ids.locate.textContent,'Søk nær meg');}
+ for(const type of ['fuel','charging','culture','fuel']){
+  const input=choices.find(i=>i.name==='poi-type'&&i.value===type),before=requests;
+  documentHandlers.change({target:input});await input.handlers.click();
+  assert.equal(ids.types.value,type,'Category presses select exactly one category');
+  assert.equal(choices.filter(i=>i.name==='poi-type'&&i.checked).length,1);
+  assert(requests>before,'Every category press starts a search, including repeat presses');
+  assert.equal(ids.count.textContent,'1');
  }
  if(near){
   many=true;ids.types.value='hotel';ids.types.handlers.change();const before=requests;await ids.locate.handlers.click();
