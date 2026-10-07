@@ -57,3 +57,5 @@ body:has(#map-fullscreen[open]){overflow:hidden}.overview .leaflet-control-attri
 /* Four independent search themes occupy two equal rows. */
 .category-row:not(.activity-row) .choice:last-child{grid-column:auto}
 #food-chain-counts{max-height:240px;overflow-y:auto;scrollbar-width:thin;padding-right:4px}
+
+.nearby-mode-info{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;border:1px solid #bdd5cb;border-radius:18px;background:#edf5f1;color:#113c36;text-decoration:none;font-size:14px;font-weight:650;white-space:nowrap}.nearby-mode-info[hidden]{display:none}

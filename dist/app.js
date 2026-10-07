@@ -1,11 +1,11 @@
-import {attachPlaceSuggestions} from './place-suggestions.js?v=49';
-import {placeChain,chainCounts} from './hotel-chains.js?v=49';
-import {createKartverketSearch} from './kartverket-places.js?v=49';
-import {settlementPoint} from './settlement-point.js?v=49';
-import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=49';
-import {getPosition} from './nearby.js?v=49';
-import {fixedMapView,routeAhead} from './map-view.js?v=49';
-import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=49';
+import {attachPlaceSuggestions} from './place-suggestions.js?v=50';
+import {placeChain,chainCounts} from './hotel-chains.js?v=50';
+import {createKartverketSearch} from './kartverket-places.js?v=50';
+import {settlementPoint} from './settlement-point.js?v=50';
+import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=50';
+import {getPosition} from './nearby.js?v=50';
+import {fixedMapView,routeAhead} from './map-view.js?v=50';
+import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=50';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 const placeChoices={},placeSelections={};let userChangedForm=false;
@@ -171,6 +171,10 @@ function renderChainControls(){
 let lastHeaderHeight=-1;
 function updateHeaderSpace(){const nav=$('result-nav'),height=Math.ceil(($('site-header').getBoundingClientRect?.()?.height??0)+(nav.hidden?0:nav.getBoundingClientRect?.()?.height??0));if(height===lastHeaderHeight)return;lastHeaderHeight=height;document.documentElement?.style?.setProperty('--site-header-height',height+'px');}
 function updateScrollControls(){
+  const modeBottom=document.querySelector('.search-mode-row')?.getBoundingClientRect?.()?.bottom;
+  const headerBottom=$('site-header').getBoundingClientRect?.()?.bottom;
+  $('nearby-mode-info').hidden=!isNearby||!Number.isFinite(modeBottom)||!Number.isFinite(headerBottom)||modeBottom>headerBottom;
+
   const counts=$('category-counts'),chains=['food-chain-counts','charging-chain-counts','fuel-chain-counts','hotel-chain-counts'].map($).find(row=>row&&!row.hidden),reference=counts.hidden?$('submit')??$('locate'):chains&&!chains.hidden?chains:counts;
   const bottom=reference?.getBoundingClientRect?.()?.bottom,titleBottom=$('site-header').getBoundingClientRect?.()?.bottom;
   const hideNav=(!isNearby&&$('route-controls')?.hidden)||!active||!Number.isFinite(bottom)||!Number.isFinite(titleBottom)||bottom>titleBottom;
