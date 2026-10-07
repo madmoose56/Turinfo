@@ -56,3 +56,4 @@ body:has(#map-fullscreen[open]){overflow:hidden}.overview .leaflet-control-attri
 
 /* Four independent search themes occupy two equal rows. */
 .category-row:not(.activity-row) .choice:last-child{grid-column:auto}
+#food-chain-counts{max-height:240px;overflow-y:auto;scrollbar-width:thin;padding-right:4px}

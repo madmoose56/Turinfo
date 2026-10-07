@@ -43,7 +43,7 @@ export function placeChain(place,type){
 export function chainCounts(places,type){
   const groups=new Map();let total=0;
   for(const place of places){const chain=placeChain(place,type);if(!chain)continue;total++;const group=groups.get(chain.id)??{...chain,count:0};group.count++;groups.set(chain.id,group);}
-  const sorted=[...groups.values()].sort((a,b)=>a.id==='other'?1:b.id==='other'?-1:a.name.localeCompare(b.name,'nb'));
+  const sorted=[...groups.values()].sort((a,b)=>a.id==='other'?1:b.id==='other'?-1:(type==='food'?b.count-a.count:0)||a.name.localeCompare(b.name,'nb'));
   return [{id:null,name:'Alle',count:total},...sorted];
 }
 export const hotelChainCounts=places=>chainCounts(places,'hotel');
