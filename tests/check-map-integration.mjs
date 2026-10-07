@@ -107,6 +107,7 @@ async function harness(near,{restored=false,gpsStart=false}={}){
     await module.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return module;
   }
   await (await load(path.join(root,'app.js'))).evaluate();
+  if(!near&&!gpsStart&&!restored)await ids.search.handlers.submit({preventDefault(){}});
   for(let i=0;i<(gpsStart?2:50)&&!near&&writes.length===0;i++)await new Promise(resolve=>setTimeout(resolve,0));
   return {ids,leaflet,writes,map:mapRecords[0],allLayers,windowHandlers,resizeObservers,
     get gpsCalls(){return gpsCalls;},get networkCalls(){return networkCalls;},
@@ -180,7 +181,7 @@ assert.equal(gpsReturn.gpsCalls,0,'Opening ?from=gps never requests location');
 assert.equal(gpsReturn.writes.length,0,'A GPS-mode return does not restore or rewrite a previous city route');
 assert.equal(gpsReturn.networkCalls,1,'GPS-mode opening only loads the place suggestions, without querying a route');
 assert.equal(gpsReturn.ids.from.disabled,true);assert.equal(gpsReturn.ids.from.required,false);
-assert.equal(gpsReturn.ids['from-gps-note'].hidden,false);
+assert.equal(gpsReturn.ids['from-gps-note'].hidden,true);
 checkTwentyKm(gpsReturn);
 await gpsReturn.ids.search.handlers.submit({preventDefault(){}});
 assert.equal(gpsReturn.gpsCalls,1,'The returned GPS-mode route obtains location only when the user submits');

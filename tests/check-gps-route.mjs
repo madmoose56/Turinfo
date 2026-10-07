@@ -66,6 +66,8 @@ async function harness({stored=null}={}){
   const modules=new Map();
   async function load(filename){const full=path.resolve(filename);if(modules.has(full))return modules.get(full);const module=new vm.SourceTextModule(fs.readFileSync(full,'utf8'),{context,identifier:full});modules.set(full,module);await module.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return module;}
   await (await load(path.join(root,'app.js'))).evaluate();
+  await tick();await tick();
+  if(!stored||JSON.parse(stored).from?.gpsOrigin){assert.equal(requests.filter(url=>String(url).includes('osrm')).length,0,'Opening a fresh page does not search automatically');assert.equal(gpsCalls,0);await ids.search.handlers.submit({preventDefault(){}});}
   for(let i=0;i<50&&writes.length===0;i++)await tick();
   assert.equal(writes.length,1,'The initial ordinary city search completes');
   const submit=()=>ids.search.handlers.submit({preventDefault(){}});
@@ -80,9 +82,13 @@ const fixture=await harness(),{ids}=fixture;
 assert.equal(fixture.gpsCalls,0,'Opening the main page never asks for location');
 assert.equal(ids['from-mode'].value,'place');assert.equal(ids.from.required,true);assert.equal(ids.from.disabled,false);
 assert.equal(ids.count.textContent,'1','The normal start settlement still excludes its own hotel');
+const beforeOriginRequests=fixture.requests.length,beforeOriginStatus=ids.status.textContent,beforeOriginCountsHidden=ids['category-counts'].hidden;
 fixture.mode('gps');
+assert.equal(fixture.requests.length,beforeOriginRequests,'GPS selection makes no geocoding, routing or registry request');
+assert.equal(ids.status.textContent,beforeOriginStatus,'GPS selection keeps the last search status');
+assert.equal(ids['category-counts'].hidden,beforeOriginCountsHidden,'GPS selection preserves result counts');
 assert.equal(fixture.gpsCalls,0,'Choosing Der jeg er does not ask for location yet');
-assert.equal(ids['from-mode'].value,'gps');assert.equal(ids['from-place'].hidden,true);assert.equal(ids['from-gps-note'].hidden,false);
+assert.equal(ids['from-mode'].value,'gps');assert.equal(ids['from-place'].hidden,false,'Selecting GPS preserves the form layout');assert.equal(ids['from-gps-note'].hidden,true);
 assert.equal(ids.from.required,false);assert.equal(ids.from.disabled,true);
 assert(ids.swap.disabled||ids.swap.hidden,'A GPS origin cannot be swapped into the city destination');
 ids.to.value='';await fixture.submit();assert.equal(fixture.gpsCalls,0,'A missing destination is rejected before asking for GPS');

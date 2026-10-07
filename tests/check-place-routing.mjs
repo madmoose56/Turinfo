@@ -88,8 +88,9 @@ async function harness({photon='both',stored=null,holdPlaces=false,journey=null}
   async function load(filename){const full=path.resolve(filename);if(modules.has(full))return modules.get(full);const module=new vm.SourceTextModule(fs.readFileSync(full,'utf8'),{context,identifier:full});modules.set(full,module);await module.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return module;}
   await (await load(path.join(root,'app.js'))).evaluate();
   if(!holdPlaces&&!journey){
-    for(let i=0;i<200&&!writes.length;i++)await tick();
-    assert.equal(writes.length,1,'Bootstrap finishes a route or restores the saved route');
+    await tick();await tick();
+    if(!stored){assert.equal(routes.length,0,'A fresh page waits for an explicit search');assert.equal(gpsCalls,0);await ids.search.fire('submit',{},false).results[0];}
+    assert.equal(writes.length,1,'An explicit search or saved route restoration completes');
     // Fuel-only queries isolate place routing from hotel start-settlement filtering.
     ids.types.value='fuel';ids.types.fire('change');
   }

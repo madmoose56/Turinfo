@@ -78,7 +78,8 @@ async function checkPage(near,userAgent='Android'){
  async function load(filename){const full=path.resolve(filename);if(modules.has(full))return modules.get(full);const m=new vm.SourceTextModule(fs.readFileSync(full,'utf8'),{context,identifier:full});modules.set(full,m);await m.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return m;}
  const app=await load(root+'app.js');await app.evaluate();
  assert.equal(ids["activity-choices"].hidden,true);ids["activities-toggle"].handlers.click();assert.equal(ids["activity-choices"].hidden,false);assert.equal(gps,0,"Opening activities asks for no position");ids["activities-toggle"].handlers.click();assert.equal(ids["activity-choices"].hidden,true);
- for(let i=0;i<300&&!near&&writes===0;i++)await new Promise(r=>setTimeout(r,0));
+ await new Promise(r=>setTimeout(r,0));
+ if(!near){assert.equal(writes,0,'Opening the route page waits for a category');assert.equal(gps,0);await ids.search.handlers.submit({preventDefault(){}});}
  assert.equal(gps,0);
  if(near){
   assert.equal(requests,0);assert.equal(reads,0);assert.equal(writes,0);assert.equal(sessionReads,0);assert.equal(sessionWrites,0);assert.equal(ids.locate.textContent,'Søk nær meg');
