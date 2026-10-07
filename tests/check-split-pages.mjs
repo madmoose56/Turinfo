@@ -64,6 +64,7 @@ async function checkPage(near,userAgent='Android'){
    ...(query.includes('"tourism"')?[{type:'node',id:1,lon:coords[0][0],lat:coords[0][1],tags:{tourism:'hotel',name:'Start-hotell'}}]:[]),
    ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
    ...(query.includes('"charging_station"')?[{type:'node',id:3,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'charging_station',name:'Start-lader',operator:'Recharge','socket:type2_combo':'2','socket:type2_combo:output':'150 kW'}}]:[]),
+   ...(query.includes('restaurant')?[{type:'node',id:501,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'fast_food',name:"McDonald's A"}},{type:'node',id:502,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'fast_food',name:'McDonalds B'}},{type:'node',id:503,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'fast_food',name:'Burger King'}}]:[]),
    ...(query.includes('museum')?[{type:'node',id:4,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{tourism:'museum',name:'Start-museum',opening_hours:'24/7',website:'example.org'}}]:[])]};
    if(wideFuel&&query.includes('"fuel"'))data.elements.push({type:'node',id:888,lon:(coords[0][0]+coords[1][0])/2+.025,lat:(coords[0][1]+coords[1][1])/2,tags:{amenity:'fuel',name:'Fuel 1.4 km off route'}});
    if(many==='mixed')data.elements=[15,2,12,4,9,1,14,3,8,13,5,10,7,11,6].map(rank=>{
@@ -105,6 +106,15 @@ async function checkPage(near,userAgent='Android'){
   assert(near?requests>before:requests>=before,'Category searches may reuse the same route data');
   assert.equal(ids.count.textContent,'1');
  }
+ const foodInput=choices.find(i=>i.name==='poi-type'&&i.value==='food');
+ documentHandlers.change({target:foodInput});await foodInput.handlers.click();
+ assert.equal(ids['activity-choices'].hidden,true,'Food is independent of the activity disclosure');
+ assert.equal(ids.count.textContent,'3');
+ const foodRow=ids['food-chain-counts'],foodNetwork=requests,foodGps=gps;
+ assert.equal(foodRow.hidden,false);assert.deepEqual(foodRow.children.filter(b=>b.type==='button').map(b=>b.textContent),['Alle: 3','Burger King: 1','McDonald’s: 2']);
+ ids['result-nav-food-chains'].children.find(b=>b.textContent.startsWith('McDonald’s:')).handlers.click();
+ assert.equal(ids.count.textContent,'2');assert.equal(requests,foodNetwork);assert.equal(gps,foodGps);
+ foodRow.children.find(b=>b.textContent.startsWith('Alle:')).handlers.click();assert.equal(ids.count.textContent,'3');
  if(!near){
   const before=requests,mode=choices.find(i=>i.name==='from-mode-choice'&&i.value==='gps');
   documentHandlers.change({target:mode});assert.equal(requests,before);assert.equal(gps,0,'Origin selector requests no GPS');
