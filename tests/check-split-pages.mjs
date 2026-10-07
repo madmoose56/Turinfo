@@ -112,7 +112,8 @@ async function checkPage(near,userAgent='Android'){
  assert.equal(ids.count.textContent,'3');
  const foodRow=ids['food-chain-counts'],foodNetwork=requests,foodGps=gps;
  assert.equal(foodRow.hidden,false);assert.deepEqual(foodRow.children.filter(b=>b.type==='button').map(b=>b.textContent),['Alle: 3','McDonald’s: 2','Burger King: 1']);
- ids['result-nav-food-chains'].children.find(b=>b.textContent.startsWith('McDonald’s:')).handlers.click();
+ assert.equal(ids['result-nav-food-chains'],undefined,'Food provider filters appear only below the search choices');
+ foodRow.children.find(b=>b.textContent.startsWith('McDonald’s:')).handlers.click();
  assert.equal(ids.count.textContent,'2');assert.equal(requests,foodNetwork);assert.equal(gps,foodGps);
  foodRow.children.find(b=>b.textContent.startsWith('Alle:')).handlers.click();assert.equal(ids.count.textContent,'3');
  if(!near){
