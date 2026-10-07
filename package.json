@@ -6,6 +6,6 @@
   "description": "Hoteller, ladestasjoner og aktiviteter langs ruten",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node tests/check-activities.mjs && node tests/check-charging.mjs && node tests/check-road-radius.mjs && node --experimental-vm-modules tests/check-split-pages.mjs && node tests/check-map-view.mjs && node --experimental-vm-modules tests/check-map-integration.mjs && node --experimental-vm-modules tests/check-gps-route.mjs && node tests/check-place-suggestions.mjs && node tests/check-settlement-point.mjs && node --experimental-vm-modules tests/check-place-routing.mjs && node tests/check-kartverket-places.mjs && node --experimental-vm-modules tests/check-kartverket-routing.mjs"
+    "test": "node tests/check-hotel-chains.mjs && node tests/check-activities.mjs && node tests/check-charging.mjs && node tests/check-road-radius.mjs && node --experimental-vm-modules tests/check-split-pages.mjs && node tests/check-map-view.mjs && node --experimental-vm-modules tests/check-map-integration.mjs && node --experimental-vm-modules tests/check-gps-route.mjs && node tests/check-place-suggestions.mjs && node tests/check-settlement-point.mjs && node --experimental-vm-modules tests/check-place-routing.mjs && node tests/check-kartverket-places.mjs && node --experimental-vm-modules tests/check-kartverket-routing.mjs"
   }
 }
