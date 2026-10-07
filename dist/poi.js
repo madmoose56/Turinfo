@@ -1,4 +1,4 @@
-import {haversine,routePosition} from './geo.js?v=41';
+import {haversine,routePosition,inSettlement} from './geo.js?v=42';
 
 export function selectedTypes(value){if(value==='all')return ['hotel','fuel','charging'];if(value==='both')return ['hotel','fuel'];return [...new Set(String(value??'hotel').split(',').filter(t=>['hotel','fuel','charging','activity','family','outdoor','culture','food'].includes(t)))];}
 export function typeValue(types=['hotel']){return types.join(',');}
@@ -48,7 +48,16 @@ export function nearQuery(coords,radius,types){
   if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lon)>180||Math.abs(lat)>90||!Number.isFinite(radius)||radius<1000||radius>50000)throw new Error('Ugyldig posisjon eller søkeradius.');
   return query(types,`${radius},${lat.toFixed(6)},${lon.toFixed(6)}`);
 }
-export function extractPlaces(elements,coords,radius,types,near=false){
+export function destinationQueries(area,types){
+  if(!area)return [];
+  const [west,south,east,north]=area.bbox,latStep=10000/111320,lonStep=latStep/Math.cos((south+north)/2*Math.PI/180),queries=[];
+  for(let lat=south;lat<north;lat+=latStep)for(let lon=west;lon<east;lon+=lonStep){
+    const box=[lat,lon,Math.min(north,lat+latStep),Math.min(east,lon+lonStep)].map(n=>n.toFixed(6)).join(',');
+    queries.push(`[out:json][timeout:15];(${selectors(types).map(selector=>`nwr${selector}(${box});`).join('')});out center tags;`);
+  }
+  return queries;
+}
+export function extractPlaces(elements,coords,radius,types,near=false,destination=null){
   const results=[];
   for(const e of elements){
     const tags=e.tags??{},kind=tags.amenity==='charging_station'?'charging':tags.amenity==='fuel'?'fuel':tags.tourism==='hotel'?'hotel':activityLabel(tags)?'activity':null;
@@ -57,10 +66,11 @@ export function extractPlaces(elements,coords,radius,types,near=false){
     const lon=e.lon??e.center?.lon,lat=e.lat??e.center?.lat;
     if(!Number.isFinite(lon)||!Number.isFinite(lat))continue;
     const point=[lon,lat],pos=near?{distance:haversine(coords,point)}:routePosition(point,coords);
-    if(pos.distance>radius+1e-6)continue;
+    const inDestination=!near&&inSettlement(point,destination);
+    if(pos.distance>radius+1e-6&&!inDestination)continue;
     const name=tags.name??tags['name:nb']??(kind==='activity'?activityLabel(tags)+' uten registrert navn':kind!=='hotel'?(tags.brand??tags.operator??tags.network??(kind==='charging'?'Ladestasjon uten registrert navn':'Bensinstasjon uten registrert navn')):'Hotell uten registrert navn');
     if(results.some(p=>p.kind===kind&&p.name===name&&haversine(p.coords,point)<120))continue;
-    results.push({id:`${e.type}/${e.id}`,kind,name,coords:point,tags,...pos});
+    results.push({id:`${e.type}/${e.id}`,kind,name,coords:point,tags,...pos,...(inDestination?{inDestination:true}:{})});
   }
   return results.sort((a,b)=>near?(a.distance-b.distance||a.name.localeCompare(b.name,'nb')):(a.along-b.along||a.distance-b.distance));
 }
