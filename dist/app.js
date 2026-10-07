@@ -1,11 +1,11 @@
-import {attachPlaceSuggestions} from './place-suggestions.js?v=46';
-import {placeChain,chainCounts} from './hotel-chains.js?v=46';
-import {createKartverketSearch} from './kartverket-places.js?v=46';
-import {settlementPoint} from './settlement-point.js?v=46';
-import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=46';
-import {getPosition} from './nearby.js?v=46';
-import {fixedMapView,routeAhead} from './map-view.js?v=46';
-import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=46';
+import {attachPlaceSuggestions} from './place-suggestions.js?v=47';
+import {placeChain,chainCounts} from './hotel-chains.js?v=47';
+import {createKartverketSearch} from './kartverket-places.js?v=47';
+import {settlementPoint} from './settlement-point.js?v=47';
+import {findStartSettlement,excludeStartResults,inSettlement,normalizePlace} from './geo.js?v=47';
+import {getPosition} from './nearby.js?v=47';
+import {fixedMapView,routeAhead} from './map-view.js?v=47';
+import {selectedTypes,resultLabel,routeQueries,destinationQueries,nearQuery,extractPlaces,fuelDetails,chargingDetails,typeValue,kindLabel,activityLabel,activityTypes,activityCategories,hasActivities} from './poi.js?v=47';
 const isNearby=document.body?.dataset.page==='nearby';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nb-NO',{maximumFractionDigits:1}),km=n=>fmt.format(n/1000)+' km';let map,routeLayer,markers,active,deferredInstall,placesPromise,busy=false;
 const placeChoices={},placeSelections={};let userChangedForm=false;
@@ -32,9 +32,9 @@ $('route-toggle')?.addEventListener('click',toggleRoute);
 function fromGPS(){return $('from-mode')?.value==='gps';}
 function refreshFromMode(){
   if(isNearby)return;
-  const gps=fromGPS();$('from-picker').hidden=gps;$('from-place').hidden=gps;$('from-gps-note').hidden=!gps;
+  const gps=fromGPS();$('from-picker').hidden=false;$('from-place').hidden=false;$('from-gps-note').hidden=true;
   if(gps||busy)placeChoices.from?.close();if(busy)placeChoices.to?.close();
-  $('from').required=!gps;$('from').disabled=busy||gps;$('swap').hidden=gps;$('swap').disabled=busy||gps;
+  $('from').required=!gps;$('from').disabled=busy||gps;$('swap').hidden=false;$('swap').disabled=busy||gps;
   document.querySelectorAll('input[name="from-mode-choice"]').forEach(input=>{input.checked=input.value===(gps?'gps':'place');});
 }
 function routeButtonText(){if(!busy)return 'Søk langs ruta';const names={hotel:'hoteller',fuel:'bensin',charging:'elbil-lading',family:'familie',outdoor:'friluft og sport',culture:'kultur',food:'mat og drikke',activity:'aktiviteter'};return 'Søker: '+selectedTypes($('types').value).map(type=>names[type]).join(' · ')+' …';}
@@ -56,12 +56,12 @@ function syncChoices(){
 }
 document.addEventListener('change',event=>{
   userChangedForm=true;
-  if(!busy)$('category-counts').hidden=true;
   const input=event.target;
+  if(input.name==='from-mode-choice'){routePool=null;searchEpoch++;$('from-mode').value=input.value;refreshFromMode();return;}
+  if(!busy)$('category-counts').hidden=true;
   if(input.name==='poi-type'){
     $('types').value=input.value;updateSearchLabels();
   }else if(input.name==='radius-choice'){$('radius').value=input.value;syncChoices();showRouteRadius();}
-  else if(input.name==='from-mode-choice'){routePool=null;searchEpoch++;$('from-mode').value=input.value;refreshFromMode();}
 });
 $('from-mode')?.addEventListener('change',refreshFromMode);
 // A category is the search action, including pressing the selected category again.
@@ -381,7 +381,7 @@ window.addEventListener('resize',updateScrollControls);
 window.addEventListener('hashchange',updateScrollControls);
 if(typeof ResizeObserver!=='undefined'){const observer=new ResizeObserver(updateScrollControls);for(const id of ['site-header','result-nav','category-counts','hotel-chain-counts','fuel-chain-counts','charging-chain-counts'])observer.observe($(id));}
 updateScrollControls();
-async function bootstrap(){try{const places=await loadPlaces();if(busy||fromGPS()||userChangedForm)return;let restored=false;try{const stored=JSON.parse(localStorage.getItem('veihotell-last-v3')??localStorage.getItem('veihotell-last-v2')??localStorage.getItem('veihotell-last-v1'));if(!stored?.from?.gpsOrigin&&stored?.route?.geometry?.coordinates?.length&&Array.isArray(stored.hotels)){const data=stored.filterVersion===4?stored:applyStartExclusion(stored,places);restored=true;$('types').value=typeValue(data.types);updateSearchLabels();if(!rememberedJourney){$('from').value=data.from.name;$('to').value=data.to.name;for(const id of ['from','to'])placeSelections[id]=data[id].kartverketId?{...data[id],id:'kartverket:'+data[id].kartverketId}:places.find(p=>p.id===data[id].ssbId)??places.find(p=>exactPlace(data[id].name,p)&&inSettlement(data[id].coords,p))??null;}$('radius').value=data.radius;syncChoices();renderRouteRadius(data);localStorage.setItem('veihotell-last-v3',JSON.stringify(data));}}catch{}if(!restored&&!rememberedJourney)search();}catch{status('Stedsoversikten kunne ikke lastes. Koble til internett og prøv igjen.',true);}}
+async function bootstrap(){try{const places=await loadPlaces();if(busy||fromGPS()||userChangedForm)return;let restored=false;try{const stored=JSON.parse(localStorage.getItem('veihotell-last-v3')??localStorage.getItem('veihotell-last-v2')??localStorage.getItem('veihotell-last-v1'));if(!stored?.from?.gpsOrigin&&stored?.route?.geometry?.coordinates?.length&&Array.isArray(stored.hotels)){const data=stored.filterVersion===4?stored:applyStartExclusion(stored,places);restored=true;$('types').value=typeValue(data.types);updateSearchLabels();if(!rememberedJourney){$('from').value=data.from.name;$('to').value=data.to.name;for(const id of ['from','to'])placeSelections[id]=data[id].kartverketId?{...data[id],id:'kartverket:'+data[id].kartverketId}:places.find(p=>p.id===data[id].ssbId)??places.find(p=>exactPlace(data[id].name,p)&&inSettlement(data[id].coords,p))??null;}$('radius').value=data.radius;syncChoices();renderRouteRadius(data);localStorage.setItem('veihotell-last-v3',JSON.stringify(data));}}catch{}}catch{status('Stedsoversikten kunne ikke lastes. Koble til internett og prøv igjen.',true);}}
 if(!isNearby&&new URLSearchParams(window.location?.search??'').get('from')==='gps')$('from-mode').value='gps';
 restoreJourney();refreshFromMode();if(!isNearby)bootstrap();else updateSearchLabels();
 
