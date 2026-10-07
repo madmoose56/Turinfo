@@ -44,7 +44,7 @@ class Node {
 function savedRoute(from={name:'Oslo',coords:oslo,ssbId:'oslo'},to={name:'Moss',coords:moss,ssbId:'moss'}){
   return {from,to,types:['fuel'],radius:1,filterVersion:3,savedAt:Date.now(),hotels:[],route:{distance:60000,duration:3600,geometry:{coordinates:[from.coords,to.coords]}}};
 }
-async function harness({photon='both',stored=null,holdPlaces=false}={}){
+async function harness({photon='both',stored=null,holdPlaces=false,journey=null}={}){
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),doc=new Node();doc.ownerDocument=doc;doc.activeElement=null;
   const ids=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],Object.assign(new Node(doc),{id:m[1]})]));
   for(const match of html.matchAll(/<input\b[^>]*id="([^"]+)"[^>]*>/g)){
@@ -58,12 +58,12 @@ async function harness({photon='both',stored=null,holdPlaces=false}={}){
   doc.getElementById=id=>ids[id]??null;doc.createElement=()=>new Node(doc);
   doc.querySelector=selector=>selector==='.map-area'?area:selector==='.overview'?overview:selector==='.map-caption'?caption:selector.startsWith('input[name=')?choices.find(node=>selector.includes('"'+node.name+'"')&&selector.includes('"'+node.value+'"')):new Node(doc);
   doc.querySelectorAll=selector=>selector.startsWith('input[name=')?choices.filter(node=>selector.includes('"'+node.name+'"')):Object.values(ids).concat(choices);
-  const writes=[],sessionWrites=[],requests=[],routes=[],cache=new Map();let gpsCalls=0,releasePlaces;
+  const preferences=[],writes=[],sessionWrites=[],requests=[],routes=[],cache=new Map();let gpsCalls=0,releasePlaces;
   const placesReady=holdPlaces?new Promise(resolve=>{releasePlaces=resolve;}):null;
   const context=vm.createContext({console,URL,URLSearchParams,AbortController,setTimeout,clearTimeout,Date,Intl,Promise,
     document:doc,window:{addEventListener(){}},innerWidth:1200,matchMedia:()=>({matches:false,addEventListener(){}}),
     navigator:{userAgent:'iPhone',onLine:true,geolocation:{getCurrentPosition(ok){gpsCalls++;ok({coords:{longitude:gps[0],latitude:gps[1],accuracy:9,heading:180}});}}},
-    localStorage:{getItem:()=>stored?JSON.stringify(stored):null,setItem:(key,value)=>writes.push({key,value})},
+    localStorage:{getItem:key=>key==='turinfo-journey-v1'?(journey?JSON.stringify(journey):null):(stored?JSON.stringify(stored):null),setItem:(key,value)=>{if(key==='turinfo-journey-v1')preferences.push(JSON.parse(value));else writes.push({key,value});}},
     sessionStorage:{getItem:key=>cache.get(key)??null,setItem:(key,value)=>{cache.set(key,value);sessionWrites.push({key,value});}},
     fetch:async(url)=>{
       requests.push(String(url));let data;
@@ -87,7 +87,7 @@ async function harness({photon='both',stored=null,holdPlaces=false}={}){
   const modules=new Map();
   async function load(filename){const full=path.resolve(filename);if(modules.has(full))return modules.get(full);const module=new vm.SourceTextModule(fs.readFileSync(full,'utf8'),{context,identifier:full});modules.set(full,module);await module.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return module;}
   await (await load(path.join(root,'app.js'))).evaluate();
-  if(!holdPlaces){
+  if(!holdPlaces&&!journey){
     for(let i=0;i<200&&!writes.length;i++)await tick();
     assert.equal(writes.length,1,'Bootstrap finishes a route or restores the saved route');
     // Fuel-only queries isolate place routing from hotel start-settlement filtering.
@@ -100,7 +100,7 @@ async function harness({photon='both',stored=null,holdPlaces=false}={}){
     assert.equal(input.value,place.name,'Selecting fills the full place name');
   }
   const submit=()=>ids.search.fire('submit',{},false).results[0];
-  return {ids,writes,sessionWrites,requests,routes,select,submit,releasePlaces,get gpsCalls(){return gpsCalls;},
+  return {ids,preferences,writes,sessionWrites,requests,routes,select,submit,releasePlaces,get gpsCalls(){return gpsCalls;},
     async chooseAmbiguous(index){for(let i=0;i<100&&!ids.choose.open;i++)await tick();assert(ids.choose.open,'Editing a same-named settlement clears its previous exact selection');ids.choose.returnValue=String(index);ids.choose.close();},
     mode(value){const choice=choices.find(node=>node.name==='from-mode-choice'&&node.value===value);choice.checked=true;choice.fire('change');}};
 }
@@ -156,3 +156,12 @@ await startup.select('from','oslo');await startup.submit();assert.equal(startup.
 point(startup.routes[0][0],oslo,'The explicit search uses the place the user selected after startup');point(startup.routes[0][1],moss,'The original destination remains usable after startup');
 
 console.log('PASS: exact same-name SSB place selection routes to distinct coordinates; swap preserves place identity; typing clears identity; identical coordinates are rejected; SSB fallback handles unavailable/wrong geocoding; saved IDs restore correctly; GPS still routes privately; deferred startup preserves typing and allows an explicit search.');
+
+const lastChoice=await harness();await lastChoice.select('from','bo-south');await lastChoice.select('to','bo-north');
+const journey=lastChoice.preferences.at(-1);assert.equal(journey.selections.from.id,'bo-south');assert.equal(journey.selections.to.id,'bo-north');
+const remembered=await harness({journey,stored:savedRoute()});await tick();await tick();
+assert.equal(remembered.ids.from.value,'Bø');assert.equal(remembered.ids.to.value,'Bø');
+await remembered.submit();point(remembered.routes.at(-1)[0],boSouth,'Remembered start retains exact namesake');point(remembered.routes.at(-1)[1],boNorth,'Remembered target retains exact namesake');
+remembered.ids['route-controls'].hidden=false;remembered.ids['route-toggle'].fire('click');assert.equal(remembered.ids['route-controls'].hidden,true);remembered.ids['route-toggle'].fire('click');assert.equal(remembered.ids['route-controls'].hidden,false);
+assert(remembered.preferences.every(value=>!JSON.stringify(value).includes(String(gps[0]))),'Preferences never store device GPS');
+console.log('PASS: last edited Fra/Til survive reload independently of old successful results, keep same-name place identities, and route controls toggle without losing fields.');

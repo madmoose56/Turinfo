@@ -57,7 +57,7 @@ async function harness({stored=null}={}){
         data={elements:[
           {type:'node',id:1,lon:start[0],lat:start[1],tags:{tourism:'hotel',name:'Hotell ved start'}},
           {type:'node',id:2,lon:moss[0],lat:moss[1],tags:{tourism:'hotel',name:'Hotell ved mål'}},
-          {type:'node',id:3,lon:start[0],lat:start[1],tags:{amenity:'fuel',name:'Bensin ved start'}}
+          {type:'node',id:3,lon:(start[0]+moss[0])/2,lat:(start[1]+moss[1])/2,tags:{amenity:'fuel',name:'Bensin ved start'}}
         ].filter(e=>e.tags.tourism?query.includes('["tourism"="hotel"]'):query.includes('["amenity"="fuel"]'))};
       }else throw new Error('Unexpected request: '+url);
       return {ok:true,json:async()=>data};
@@ -96,7 +96,7 @@ assert(fixture.pendingGps,'Submitting the GPS route requests a fresh device posi
 assert.equal(ids.submit.disabled,true);await fixture.submit();assert.equal(fixture.gpsCalls,1,'The busy form cannot start two simultaneous GPS requests');
 fixture.pendingGps.ok(point(outside));await pending;
 assert.equal(ids.submit.disabled,false);assert.equal(ids.from.disabled,true,'The hidden city input stays disabled after GPS search');
-assert.equal(ids.count.textContent,'2','GPS outside a known settlement does not falsely exclude nearby hotels');
+assert.equal(ids.count.textContent,'1','GPS starts also exclude all results within 3 km');
 assert.equal(ids.summary.children[0].textContent,'Der jeg er → Moss');
 const routeURL=fixture.requests.filter(url=>url.includes('osrm')).at(-1);
 assert(new URL(routeURL).pathname.endsWith(outside.join(',')+';'+moss.join(',')),'OSRM uses longitude,latitude from GPS as the route origin');
@@ -109,14 +109,14 @@ for(const kind of ['denied','invalid','route']){
   await fixture.submit();
   assert.equal(fixture.gpsCalls,oldGps+1);assert.equal(ids.submit.disabled,false);assert.equal(ids.from.disabled,true);assert.equal(ids.to.disabled,false);
   assert(ids.status.textContent.includes(kind==='denied'?'avslått':kind==='invalid'?'ugyldig':'Rutetjenesten svarer ikke'));
-  assert.equal(fixture.writes.length,oldWrites);assert.equal(ids.count.textContent,'2','A failed request preserves the prior displayed search');
+  assert.equal(fixture.writes.length,oldWrites);assert.equal(ids.count.textContent,'1','A failed request preserves the prior displayed search');
   if(kind!=='route')assert.equal(fixture.requests.length,oldRequests,'Invalid or denied location never starts routing or place queries');
 }
 fixture.failRoute(false);fixture.setGps(oslo);ids.types.value='both';ids.types.handlers.change();await fixture.submit();
-assert.equal(ids.count.textContent,'2','Known GPS start settlement excludes its hotel while retaining fuel and destination hotel');
+assert.equal(ids.count.textContent,'2','The 3 km GPS exclusion retains more distant fuel and destination hotel');
 const gpsResultNames=ids.results.children.map(card=>card.children[1].children[0].textContent);
 assert(!gpsResultNames.includes('Hotell ved start'),'The GPS start settlement hotel remains excluded');
-assert(gpsResultNames.includes('Hotell ved mål')&&gpsResultNames.includes('Bensin ved start'),'Destination hotels and fuel at the GPS start remain included');
+assert(gpsResultNames.includes('Hotell ved mål')&&gpsResultNames.includes('Bensin ved start'),'Destination hotels and fuel beyond 3 km remain included');
 assert.equal(fixture.writes.length,writesBefore,'Successful GPS results remain memory-only');
 
 fixture.mode('place');assert.equal(ids['from-mode'].value,'place');assert.equal(ids['from-place'].hidden,false);assert.equal(ids['from-gps-note'].hidden,true);

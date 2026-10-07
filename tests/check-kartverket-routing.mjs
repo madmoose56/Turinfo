@@ -43,7 +43,7 @@ async function harness({stored=savedRoute()}={}){
       querySelectorAll:selector=>selector.startsWith('input[name=')?choices.filter(node=>selector.includes('"'+node.name+'"')):Object.values(ids).concat(choices)},
     window:{scrollY:0,innerHeight:800,addEventListener(){}},innerWidth:1200,matchMedia:()=>({matches:false,addEventListener(){}}),
     navigator:{userAgent:'iPhone',onLine:true,geolocation:{getCurrentPosition(ok){gpsCalls++;ok({coords:{longitude:gps[0],latitude:gps[1],accuracy:9,heading:180}});}}},
-    localStorage:{getItem:()=>JSON.stringify(stored),setItem:(key,value)=>writes.push({key,value})},
+    localStorage:{getItem:()=>JSON.stringify(stored),setItem:(key,value)=>{if(key!=='turinfo-journey-v1')writes.push({key,value});}},
     sessionStorage:{getItem:()=>null,setItem:(key,value)=>sessionWrites.push({key,value})},
     fetch:async(url,options)=>{
       requests.push(String(url));let data;
@@ -89,14 +89,14 @@ async function harness({stored=savedRoute()}={}){
 const outside=await harness();outside.pick('from',official('100','Bygda',rural));outside.pick('to',destination);await outside.submit();
 assert.equal(outside.routes.length,1,'A verified rural SSR selection can route without an SSB polygon');
 point(outside.routes[0][0],rural,'The router receives the selected SSR start point');point(outside.routes[0][1],moss,'The router receives the selected SSR destination point');
-assert.deepEqual(outside.names().sort(),['Bensin ved start','Hotell med Oslo-adresse','Hotell ved mål','Hotell ved start'].sort(),'A rural SSR start does not falsely exclude hotel results');
+assert.deepEqual(outside.names().sort(),['Hotell med Oslo-adresse','Hotell ved mål'].sort(),'A rural SSR start also excludes all results within 3 km');
 assert(!outside.requests.some(url=>url.includes('photon')),'Selected SSR points never require Photon');
 let saved=JSON.parse(outside.writes.at(-1).value);assert.equal(saved.from.kartverketId,'100');assert.equal(saved.to.kartverketId,'200');assert.equal(saved.from.source,'kartverket');
 assert.equal(saved.from.municipalityIds[0],'0301');assert.equal(saved.from.region,'Testkommune');
 
 const inside=await harness();inside.pick('from',official('300','Sentrum',oslo,'Oslo'));inside.pick('to',destination);await inside.submit();
-assert.equal(inside.routes.length,1);assert.deepEqual(inside.names().sort(),['Bensin ved start','Hotell ved mål'].sort(),'An SSR district label uses its containing SSB polygon and Oslo address label, retaining fuel');
-saved=JSON.parse(inside.writes.at(-1).value);assert.equal(saved.startAreaName,'Oslo');assert.equal(saved.from.kartverketId,'300');assert.equal(saved.from.ssbId,'oslo');
+assert.equal(inside.routes.length,1);assert.deepEqual(inside.names().sort(),['Hotell med Oslo-adresse','Hotell ved mål'].sort(),'An SSR start excludes every category within 3 km and retains hotels beyond it');
+saved=JSON.parse(inside.writes.at(-1).value);assert.equal(saved.filterVersion,4);assert.equal(saved.from.kartverketId,'300');assert.equal(saved.from.ssbId,'oslo');
 
 const restored=await harness({stored:savedRoute(official('100','Bygda',rural),destination)});await restored.submit();
 assert.equal(restored.routes.length,1,'Restored rural SSR metadata remains usable without an SSB polygon');point(restored.routes[0][0],rural,'Restored SSR identity keeps its official coordinates');

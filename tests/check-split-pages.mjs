@@ -23,15 +23,15 @@ async function checkPage(near,userAgent='Android'){
  const documentHandlers={};
  assert.equal(Boolean(ids.search),!near);assert.equal(Boolean(ids.locate),near);
  if(near){
-  assert(/<a[^>]*href="\.\/"[^>]*><span>Fra sted<\/span><\/a>/.test(html),'Nearby has a direct city-route choice');
-  assert(/<a[^>]*href="\.\/\?from=gps"[^>]*><span>Fra der jeg er<\/span><\/a>/.test(html),'Nearby has a GPS-route return choice without requiring a destination');
+  assert(html.includes('<span>Velg rute</span>'),'Nearby returns to the route mode');
+
   assert(!ids.from&&!ids.to&&!ids.radius&&!ids.swap,'Nearby needs no route origin, destination or corridor distance');
   const routeChoices=[...fs.readFileSync(root+'index.html','utf8').matchAll(/<input[^>]*name="poi-type"[^>]*value="([^"]+)"/g)].map(m=>m[1]);
   assert.deepEqual(choices.filter(input=>input.name==='poi-type').map(input=>input.value),routeChoices,'Nearby exposes every route category');
  }else{
   assert(!html.includes('class="page-nav"'));
   assert(/<a[^>]*class="choice nearby-choice"[^>]*href="\.\/nearby\.html"[^>]*><span>Nær meg<\/span><\/a>/.test(html),'The third origin choice opens the existing nearby page');
-  assert(html.indexOf('class="choice nearby-choice"')>html.indexOf('value="gps"')&&html.indexOf('class="choice nearby-choice"')<html.indexOf('id="to"'),'Nearby follows the GPS origin choice in the origin control');
+  assert(html.indexOf('id="route-toggle"')<html.indexOf('class="choice nearby-choice"')&&html.indexOf('class="choice nearby-choice"')<html.indexOf('id="from-mode"'),'Search modes occupy a separate row above origin choices');
   assert(html.includes('id="from-mode"'));ids['from-mode'].value='place';
  }
  ids.types.value='hotel';
@@ -62,9 +62,9 @@ async function checkPage(near,userAgent='Android'){
    if(registryEndpoints.length===1&&registryFailure==='invalid')return {ok:true,json:async()=>({})};
    const around=query.match(/around:(\d+)/);if(around)searchRadii.push(Number(around[1]));data={elements:[
    ...(query.includes('"tourism"')?[{type:'node',id:1,lon:coords[0][0],lat:coords[0][1],tags:{tourism:'hotel',name:'Start-hotell'}}]:[]),
-   ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
-   ...(query.includes('"charging_station"')?[{type:'node',id:3,lon:coords[0][0],lat:coords[0][1],tags:{amenity:'charging_station',name:'Start-lader',operator:'Recharge','socket:type2_combo':'2','socket:type2_combo:output':'150 kW'}}]:[]),
-   ...(query.includes('museum')?[{type:'node',id:4,lon:coords[0][0],lat:coords[0][1],tags:{tourism:'museum',name:'Start-museum',opening_hours:'24/7',website:'example.org'}}]:[])]};
+   ...(query.includes('"fuel"')?[{type:'node',id:2,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'fuel',name:'Start-stasjon'}}]:[]),
+   ...(query.includes('"charging_station"')?[{type:'node',id:3,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{amenity:'charging_station',name:'Start-lader',operator:'Recharge','socket:type2_combo':'2','socket:type2_combo:output':'150 kW'}}]:[]),
+   ...(query.includes('museum')?[{type:'node',id:4,lon:coords[near?0:1][0],lat:coords[near?0:1][1],tags:{tourism:'museum',name:'Start-museum',opening_hours:'24/7',website:'example.org'}}]:[])]};
    if(many==='mixed')data.elements=[15,2,12,4,9,1,14,3,8,13,5,10,7,11,6].map(rank=>{
     const point=radialPoint(coords[0],rank*400,(rank%4)*90),tagSets=[{tourism:'hotel'},{amenity:'fuel'},{amenity:'charging_station'},{tourism:'museum'}];
     return {type:'node',id:200+rank,lon:point[0],lat:point[1],tags:{...tagSets[rank%4],name:'Radial '+rank,...(rank%4===0?{brand:rank%8===0?'Thon Hotels':'Best Western Plus'}:{})}};
@@ -76,7 +76,7 @@ async function checkPage(near,userAgent='Android'){
  const modules=new Map();
  async function load(filename){const full=path.resolve(filename);if(modules.has(full))return modules.get(full);const m=new vm.SourceTextModule(fs.readFileSync(full,'utf8'),{context,identifier:full});modules.set(full,m);await m.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return m;}
  const app=await load(root+'app.js');await app.evaluate();
- for(let i=0;i<20&&!near&&writes===0;i++)await new Promise(r=>setTimeout(r,0));
+ for(let i=0;i<300&&!near&&writes===0;i++)await new Promise(r=>setTimeout(r,0));
  assert.equal(gps,0);
  if(near){
   assert.equal(requests,0);assert.equal(reads,0);assert.equal(writes,0);assert.equal(sessionReads,0);assert.equal(sessionWrites,0);assert.equal(ids.locate.textContent,'Søk nær meg');
@@ -88,7 +88,7 @@ async function checkPage(near,userAgent='Android'){
   assert(ids.results.children[0].children[1].children.some(n=>n.textContent.includes('CCS (150 kW)')));
   ids.types.value='all';ids.types.handlers.change();await ids.locate.handlers.click();assert.equal(ids.count.textContent,'3');assert.equal(writes,0);
  }else{
-  assert.equal(writes,1);assert.equal(ids.count.textContent,'0');assert.equal(ids['category-counts'].children[0].textContent,'Hoteller: 0');
+  assert.equal(writes,1,ids.status.textContent);assert.equal(ids.count.textContent,'0');assert.equal(ids['category-counts'].children[0].textContent,'Hoteller: 0');
   ids.types.value='both';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});
   assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-stasjon');assert(ids.status.textContent.includes('300 m'));assert.equal(gps,0);
   ids.types.value='charging';ids.types.handlers.change();await ids.search.handlers.submit({preventDefault(){}});assert.equal(ids.count.textContent,'1');assert.equal(ids.results.children[0].children[1].children[0].textContent,'Start-lader');assert.equal(ids['charging-legend'].hidden,false);
