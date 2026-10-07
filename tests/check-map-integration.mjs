@@ -116,7 +116,7 @@ function checkTwentyKm(fixture,size=600){
   const view=fixture.map.views.at(-1);
   assert(view&&Number.isFinite(view.zoom),'A numeric fixed viewport is applied');
   const span=size*2*Math.PI*6378137*Math.cos(view.center[0]*Math.PI/180)/(256*2**view.zoom);
-  assert(Math.abs(span-20000)<30,'The square viewport spans 20 km instead of scaling to all results: '+span);
+  assert(Math.abs(span-(fixture.ids.from?10000:20000))<30,'The viewport uses 10 km for routes and 20 km nearby: '+span);
 }
 function checkResultCoordinates(fixture){
   const pins=fixture.allLayers.filter(layer=>layer.kind==='marker'&&!layer.removed&&layer.options.icon?.className&&!layer.options.icon.className.includes('city-pin'));
@@ -199,4 +199,4 @@ near.setSize({x:1000,y:1000});await near.ids['map-open'].handlers.click();checkT
 checkGpsCenter(near,1000);
 near.setSize({x:600,y:600});await near.ids['map-back'].handlers.click();checkTwentyKm(near);
 checkGpsCenter(near);
-console.log('PASS: both Leaflet maps use a 20 km square on initial render, search, restored route, result focus and fullscreen resize; numbered pins match navigation GPS coordinates; nearby centers GPS while the southbound route retains top-edge positioning; GPS-mode return link waits for explicit search; denied GPS creates no guessed pin; device position has a distinct accurate marker and is never persisted.');
+console.log('PASS: route maps use a 10 km square and nearby maps use 20 km on initial render, search, restored route, result focus and fullscreen resize; numbered pins match navigation GPS coordinates; nearby centers GPS while the southbound route retains top-edge positioning; GPS-mode return link waits for explicit search; denied GPS creates no guessed pin; device position has a distinct accurate marker and is never persisted.');

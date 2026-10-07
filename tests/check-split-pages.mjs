@@ -34,7 +34,7 @@ async function checkPage(near,userAgent='Android'){
   assert(html.indexOf('id="route-toggle"')<html.indexOf('class="choice nearby-choice"')&&html.indexOf('class="choice nearby-choice"')<html.indexOf('id="from-mode"'),'Search modes occupy a separate row above origin choices');
   assert(html.includes('id="from-mode"'));ids['from-mode'].value='place';
  }
- ids.types.value='hotel';
+ ids.types.value='hotel';ids['activity-choices'].hidden=true;
  if(near)assert(!html.includes('near-radius'));else{ids.from.value='Oslo';ids.to.value='Moss';ids.radius.value='0.3';}
  let gps=0,requests=0,reads=0,writes=0,sessionReads=0,sessionWrites=0,deny=false,many=false,registryFailure='',otherRegistryRequests=0;
  const registryEndpoints=[];
@@ -76,6 +76,7 @@ async function checkPage(near,userAgent='Android'){
  const modules=new Map();
  async function load(filename){const full=path.resolve(filename);if(modules.has(full))return modules.get(full);const m=new vm.SourceTextModule(fs.readFileSync(full,'utf8'),{context,identifier:full});modules.set(full,m);await m.link(spec=>load(path.join(path.dirname(full),spec.split('?')[0])));return m;}
  const app=await load(root+'app.js');await app.evaluate();
+ assert.equal(ids["activity-choices"].hidden,true);ids["activities-toggle"].handlers.click();assert.equal(ids["activity-choices"].hidden,false);assert.equal(gps,0,"Opening activities asks for no position");ids["activities-toggle"].handlers.click();assert.equal(ids["activity-choices"].hidden,true);
  for(let i=0;i<300&&!near&&writes===0;i++)await new Promise(r=>setTimeout(r,0));
  assert.equal(gps,0);
  if(near){
@@ -103,7 +104,7 @@ async function checkPage(near,userAgent='Android'){
   assert.equal(ids.count.textContent,'1');
  }
  if(near){
-  many=true;ids.types.value='hotel';ids.types.handlers.change();const before=requests;await ids.locate.handlers.click();
+  many=true;ids.types.value='hotel';ids['activity-choices'].hidden=true;ids.types.handlers.change();const before=requests;await ids.locate.handlers.click();
   assert.equal(requests-before,1);assert.equal(searchRadii.at(-1),10000);assert.equal(ids.count.textContent,'10');assert.equal(ids.results.children.length,10);
   assert.deepEqual(ids.results.children.map(card=>card.children[1].children[0].textContent),Array.from({length:10},(_,i)=>'Test '+(i+1)));
   assert.equal(writes,0);assert(searchRadii.includes(25000));assert(searchRadii.includes(50000));
@@ -161,7 +162,7 @@ async function checkPage(near,userAgent='Android'){
  assert(ids.status.textContent.includes('Viser fortsatt forrige'));
  assert.equal(ids.count.textContent,previousCount);assert.equal(ids[near?'locate':'submit'].disabled,false);assert(ids['category-counts'].textContent.includes('ikke fullført'));
  many=false;
- {ids.types.value='hotel';await runSearch();assert.equal(ids.count.textContent,'1');assert(ids.status.textContent.includes('Viser hotelloversikten fra'));assert(ids['category-counts'].textContent.includes('Hoteller: 1'));assert(ids['category-counts'].textContent.includes('Hotellopplysninger fra'));assert.equal(ids['category-counts'].hidden,false);}
+ {ids.types.value='hotel';ids['activity-choices'].hidden=true;await runSearch();assert.equal(ids.count.textContent,'1');assert(ids.status.textContent.includes('Viser hotelloversikten fra'));assert(ids['category-counts'].textContent.includes('Hoteller: 1'));assert(ids['category-counts'].textContent.includes('Hotellopplysninger fra'));assert.equal(ids['category-counts'].hidden,false);}
  {
   const beforeWrites=writes;
   ids.types.value='all';ids.types.handlers.change();await runSearch();
@@ -209,3 +210,4 @@ for(const [url,expected] of [['https://example.test/nearby.html','./nearby.html'
  let response;handlers.fetch({request:{method:'GET',mode:'navigate',url},respondWith:p=>response=p});assert.equal(await response,expected);
 }
 console.log('PASS: route home has a third Nearby choice; nearby needs no route destination and has the same categories; GPS only after explicit search; ten nearest mixed-category radial results across four directions; no route, local or session cache access for nearby; permission error and combined GPS results; main route filter and Ved vei preserved; correct offline fallback; mixed hotel reserve searches show unavailable categories without overwriting complete route cache, and recover when other categories respond.');
+
