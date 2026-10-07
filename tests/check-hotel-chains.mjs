@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {hotelChain,hotelChainCounts} from '../dist/hotel-chains.js';
+const hotel=(name,tags={})=>({kind:'hotel',name,tags});
+assert.equal(hotelChain(hotel('Best Western Plus Oslo')).name,'Best Western');
+assert.equal(hotelChain(hotel('Thon Hotel Arena')).name,'Thon');
+assert.equal(hotelChain(hotel('Lokalt navn',{brand:'THON HOTELS'})).name,'Thon');
+assert.equal(hotelChain(hotel('Best Western Old Name',{brand:'Scandic'})).name,'Scandic','Current registered brand takes precedence over the name');
+assert.equal(hotelChain(hotel('Thon-like Historic Name',{brand:'Independent Inns'})).name,'Independent Inns');
+assert.equal(hotelChain(hotel('Et lite hotell',{operator:'Thon Hotels'})).name,'Thon');
+assert.equal(hotelChain(hotel('Grand Hotel',{operator:'Eiendom AS'})).id,'other','An unknown property owner is not inferred to be a chain');
+assert.equal(hotelChain({kind:'fuel',name:'Thon bensin',tags:{brand:'Thon'}}),null);
+assert.equal(hotelChain(hotel('Comfortable Hotel')).id,'other');
+assert.equal(hotelChain(hotel('Thonning Hotel')).id,'other');
+assert.equal(hotelChain({name:'Scandic gammel lagring'}).name,'Scandic');
+const groups=hotelChainCounts([hotel('BW',{brand:'Best Western'}),hotel('Best Western Plus Moss'),hotel('Thon Hotel'),hotel('Ukjent'),hotel('Lokalt',{brand:'Nordic Inns'}),{kind:'charging',tags:{brand:'Thon'}}]);
+assert.deepEqual(groups,[{id:null,name:'Alle',count:5},{id:'best western',name:'Best Western',count:2},{id:'nordic inns',name:'Nordic Inns',count:1},{id:'thon',name:'Thon',count:1},{id:'other',name:'Øvrige hoteller',count:1}]);
+assert.deepEqual(hotelChainCounts([]),[{id:null,name:'Alle',count:0}]);
+console.log('PASS: chain buttons group actual hotel results, canonical names and registered brands; unknown hotels retained; non-hotels excluded and old saved results supported.');
