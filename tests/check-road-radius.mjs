@@ -20,7 +20,7 @@ const html=fs.readFileSync('dist/index.html','utf8');
 assert(html.includes('name="radius-choice" value="0.3" checked'));assert(html.includes('<span>Ved vei</span>'));
 assert(html.includes('maks 300 meter i luftlinje fra den valgte kjøreruten'));
 const app=fs.readFileSync('dist/app.js','utf8');
-assert(app.includes("radius*1000,types)"));assert(app.includes("radiusText(data.radius)"));
+assert(app.includes("nearQuery(location.coords,3000,types)"));assert(app.includes("radiusText(data.radius)"));
 assert(app.includes('#search select'));assert(app.includes("$('radius')?.addEventListener('change'"));
 console.log('PASS: bounding box encloses route; off-route box candidates excluded; exact 300m boundary and original route preserved.');
 

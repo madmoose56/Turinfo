@@ -194,7 +194,7 @@ near.ids.types.value='all';near.ids.types.handlers.change();await near.ids.locat
 assert.equal(near.gpsCalls,1);assert.equal(near.ids.count.textContent,'3');
 checkGps(near);checkTwentyKm(near);checkResultCoordinates(near);checkGpsCenter(near);
 assert.equal(near.writes.length,0,'Nearby search never saves a GPS position');
-const area=near.allLayers.find(layer=>layer.kind==='circle'&&!layer.removed&&layer.options.radius>=10000);
+const area=near.allLayers.find(layer=>layer.kind==='circle'&&!layer.removed&&layer.options.radius===3000);
 samePoint(area.coords,[gpsCoords[1],gpsCoords[0]],'Nearby search circle shares the GPS marker coordinates');
 near.setSize({x:1000,y:1000});await near.ids['map-open'].handlers.click();checkTwentyKm(near,1000);
 checkGpsCenter(near,1000);
